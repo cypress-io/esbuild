@@ -3,6 +3,7 @@ package snap_printer
 import (
 	"bytes"
 	"fmt"
+	"github.com/evanw/esbuild/internal/snap_renamer"
 	"math"
 	"strconv"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	"github.com/evanw/esbuild/internal/js_ast"
 	"github.com/evanw/esbuild/internal/js_lexer"
 	"github.com/evanw/esbuild/internal/logger"
-	"github.com/evanw/esbuild/internal/renamer"
 	"github.com/evanw/esbuild/internal/sourcemap"
 )
 
@@ -406,7 +406,7 @@ func (p *printer) printQuotedUTF16(text []uint16, quote rune) {
 
 type printer struct {
 	symbols            js_ast.SymbolMap
-	renamer            renamer.Renamer
+	renamer            snap_renamer.SnapRenamer
 	importRecords      []ast.ImportRecord
 	options            PrintOptions
 	extractedComments  map[string]bool
@@ -2918,7 +2918,7 @@ type SourceMapChunk struct {
 
 func createPrinter(
 	symbols js_ast.SymbolMap,
-	r renamer.Renamer,
+	r snap_renamer.SnapRenamer,
 	importRecords []ast.ImportRecord,
 	options PrintOptions,
 	approximateLineCount int32,
@@ -2970,7 +2970,7 @@ type PrintResult struct {
 	ExtractedComments map[string]bool
 }
 
-func Print(tree js_ast.AST, symbols js_ast.SymbolMap, r renamer.Renamer, options PrintOptions) PrintResult {
+func Print(tree js_ast.AST, symbols js_ast.SymbolMap, r snap_renamer.SnapRenamer, options PrintOptions) PrintResult {
 	p := createPrinter(symbols, r, tree.ImportRecords, options, tree.ApproximateLineCount)
 
 	for _, part := range tree.Parts {
@@ -2995,7 +2995,7 @@ func Print(tree js_ast.AST, symbols js_ast.SymbolMap, r renamer.Renamer, options
 	}
 }
 
-func PrintExpr(expr js_ast.Expr, symbols js_ast.SymbolMap, r renamer.Renamer, options PrintOptions) PrintResult {
+func PrintExpr(expr js_ast.Expr, symbols js_ast.SymbolMap, r snap_renamer.SnapRenamer, options PrintOptions) PrintResult {
 	p := createPrinter(symbols, r, nil, options, 0)
 
 	p.printExpr(expr, js_ast.LLowest, 0)

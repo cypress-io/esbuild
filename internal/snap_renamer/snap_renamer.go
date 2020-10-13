@@ -7,8 +7,8 @@ type SnapRenamer struct {
 	deferredIdentifiers map[js_ast.Ref]string
 }
 
-func NewSnapRenamer(symbols js_ast.SymbolMap) *SnapRenamer {
-	return &SnapRenamer{
+func NewSnapRenamer(symbols js_ast.SymbolMap) SnapRenamer {
+	return SnapRenamer{
 		symbols:             symbols,
 		deferredIdentifiers: make(map[js_ast.Ref]string),
 	}
