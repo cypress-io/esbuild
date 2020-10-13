@@ -2517,7 +2517,7 @@ func (p *printer) printStmt(stmt js_ast.Stmt) {
 		p.printSemicolonAfterStatement()
 
 	case *js_ast.SLocal:
-		if handled := p.HandleSLocal(s); !handled {
+		if handled := p.handleSLocal(s); !handled {
 			switch s.Kind {
 			case js_ast.LocalConst:
 				p.printDeclStmt(s.IsExport, "const", s.Decls)
