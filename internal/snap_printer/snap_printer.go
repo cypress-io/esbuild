@@ -440,6 +440,9 @@ type printer struct {
 	// to avoid replicating the previous mapping if we don't need to.
 	lineStartsWithMapping     bool
 	coverLinesWithoutMappings bool
+
+	// For snapshot
+	shouldReplaceRequire func(string) bool
 }
 
 type lineOffsetTable struct {
@@ -2924,6 +2927,7 @@ func createPrinter(
 	importRecords []ast.ImportRecord,
 	options PrintOptions,
 	approximateLineCount int32,
+	shouldReplaceRequire func(string) bool,
 ) *printer {
 	p := &printer{
 		symbols:            symbols,
@@ -2950,6 +2954,8 @@ func createPrinter(
 		// lines gives very strange and unhelpful results with source maps from
 		// other tools.
 		coverLinesWithoutMappings: options.InputSourceMap == nil,
+
+		shouldReplaceRequire: shouldReplaceRequire,
 	}
 
 	// If we're writing out a source map, prepare a table of line start indices
@@ -2972,8 +2978,14 @@ type PrintResult struct {
 	ExtractedComments map[string]bool
 }
 
-func Print(tree js_ast.AST, symbols js_ast.SymbolMap, r snap_renamer.SnapRenamer, options PrintOptions) PrintResult {
-	p := createPrinter(symbols, r, tree.ImportRecords, options, tree.ApproximateLineCount)
+func Print(
+	tree js_ast.AST,
+	symbols js_ast.SymbolMap,
+	r snap_renamer.SnapRenamer,
+	options PrintOptions,
+	shouldReplaceRequire func(string) bool,
+) PrintResult {
+	p := createPrinter(symbols, r, tree.ImportRecords, options, tree.ApproximateLineCount, shouldReplaceRequire)
 
 	for _, part := range tree.Parts {
 		for _, stmt := range part.Stmts {

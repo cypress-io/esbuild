@@ -37,7 +37,7 @@ func RunOnly(
 	symbols.Outer[0] = tree.Symbols
 	r := snap_renamer.NewSnapRenamer(symbols)
 	var js []byte
-	js = Print(tree, symbols, r, options).JS
+	js = Print(tree, symbols, r, options, ReplaceAll).JS
 	fmt.Printf(strings.TrimSpace(string(js)))
 }
 
@@ -56,7 +56,6 @@ func expectPrintedCommon(
 	options PrintOptions,
 	shouldReplaceRequire func(string) bool,
 ) {
-	// TODO: pass + use shouldReplaceRequire
 	t.Helper()
 	t.Run(name, func(t *testing.T) {
 		t.Helper()
@@ -76,7 +75,7 @@ func expectPrintedCommon(
 		symbols := js_ast.NewSymbolMap(1)
 		symbols.Outer[0] = tree.Symbols
 		r := snap_renamer.NewSnapRenamer(symbols)
-		js := Print(tree, symbols, r, options).JS
+		js := Print(tree, symbols, r, options, shouldReplaceRequire).JS
 		assertEqual(t, strings.TrimSpace(string(js)), strings.TrimSpace(expected))
 	})
 }

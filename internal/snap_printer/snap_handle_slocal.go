@@ -59,13 +59,12 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr) (RequireDecl, bool)
 					case *js_ast.EString:
 						argString = stringifyEString(x)
 					}
-					// TODO:
-					// if p.shouldReplaceRequire(argString) {
-					return RequireDecl{
-						requireCall: expr,
-						requireArg:  argString,
-					}, true
-					// }
+					if p.shouldReplaceRequire(argString) {
+						return RequireDecl{
+							requireCall: expr,
+							requireArg:  argString,
+						}, true
+					}
 				}
 			}
 		}
@@ -182,7 +181,7 @@ func (p *printer) printRequireReplacement(require RequireDecl, fnCall string) {
 	p.printNewline()
 }
 
-func (p *printer) HandleSLocal(local *js_ast.SLocal) (handled bool) {
+func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 	maybeRequires := p.extractRequireDeclarations(local)
 	if !hasRequire(maybeRequires) {
 		return false
