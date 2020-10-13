@@ -2517,13 +2517,15 @@ func (p *printer) printStmt(stmt js_ast.Stmt) {
 		p.printSemicolonAfterStatement()
 
 	case *js_ast.SLocal:
-		switch s.Kind {
-		case js_ast.LocalConst:
-			p.printDeclStmt(s.IsExport, "const", s.Decls)
-		case js_ast.LocalLet:
-			p.printDeclStmt(s.IsExport, "let", s.Decls)
-		case js_ast.LocalVar:
-			p.printDeclStmt(s.IsExport, "var", s.Decls)
+		if handled := p.HandleSLocal(s); !handled {
+			switch s.Kind {
+			case js_ast.LocalConst:
+				p.printDeclStmt(s.IsExport, "const", s.Decls)
+			case js_ast.LocalLet:
+				p.printDeclStmt(s.IsExport, "let", s.Decls)
+			case js_ast.LocalVar:
+				p.printDeclStmt(s.IsExport, "var", s.Decls)
+			}
 		}
 
 	case *js_ast.SIf:
