@@ -1,27 +1,8 @@
 package snap_printer
 
 import (
-	"fmt"
 	"github.com/evanw/esbuild/internal/js_ast"
 )
-
-type RequireDecl struct {
-	requireCall    js_ast.Expr
-	requireArg     string
-	identifier     js_ast.Ref
-	identifierName string
-}
-
-type NonRequireDecl struct {
-	kind js_ast.LocalKind
-	decl js_ast.Decl
-}
-
-type MaybeRequireDecl struct {
-	isRequire  bool
-	require    RequireDecl    // use if this is a require
-	nonRequire NonRequireDecl // use if this is not a require
-}
 
 //
 // Utils
@@ -42,36 +23,6 @@ func (p *printer) nameForSymbol(ref js_ast.Ref) string {
 	return p.renamer.NameForSymbol(ref)
 }
 
-func (p *printer) extractRequireExpression(expr js_ast.Expr) (RequireDecl, bool) {
-	switch x := expr.Data.(type) {
-	case *js_ast.ECall:
-		target := x.Target
-		args := x.Args
-		// require('foo') has exactly one arg
-		if len(args) == 1 {
-			switch x := target.Data.(type) {
-			case *js_ast.EIdentifier:
-				name := p.nameForSymbol(x.Ref)
-				if name == "require" {
-					arg := args[0]
-					var argString string
-					switch x := arg.Data.(type) {
-					case *js_ast.EString:
-						argString = stringifyEString(x)
-					}
-					if p.shouldReplaceRequire(argString) {
-						return RequireDecl{
-							requireCall: expr,
-							requireArg:  argString,
-						}, true
-					}
-				}
-			}
-		}
-	}
-	return RequireDecl{}, false
-}
-
 func (p *printer) extractBinding(binding js_ast.Binding) (js_ast.Ref, string, bool) {
 	switch b := binding.Data.(type) {
 	case *js_ast.BIdentifier:
@@ -84,7 +35,7 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 	if decl.Value != nil {
 		// First verify that this is a statement that assigns the result of a
 		// `require` call.
-		require, isRequire := p.extractRequireExpression(*decl.Value)
+		requireExpr, isRequire := p.extractRequireExpression(*decl.Value)
 		if !isRequire {
 			return RequireDecl{}, false
 		}
@@ -93,11 +44,7 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 		identifier, identifierName, ok := p.extractBinding(decl.Binding)
 		// If it is not assigned we cannot handle it at this point
 		if ok {
-			return RequireDecl{
-				requireCall:    require.requireCall,
-				requireArg:     require.requireArg,
-				identifier:     identifier,
-				identifierName: identifierName}, true
+			return requireExpr.toRequireDecl(identifier, identifierName), true
 		}
 	}
 
@@ -161,26 +108,7 @@ func (p *printer) printNonRequire(nonRequire NonRequireDecl) {
 	}
 }
 
-func (p *printer) printRequireReplacement(require RequireDecl, fnCall string) {
-	id := require.identifierName
-
-	idDeclaration := fmt.Sprintf("let %s;", id)
-	fnHeader := fmt.Sprintf("function %s {", fnCall)
-	fnBodyStart := fmt.Sprintf("  return %s = %s || ", id, id)
-	fnClose := "}"
-
-	p.printNewline()
-	p.print(idDeclaration)
-	p.printNewline()
-	p.print(fnHeader)
-	p.printNewline()
-	p.print(fnBodyStart)
-	p.printExpr(require.requireCall, js_ast.LLowest, 0)
-	p.printNewline()
-	p.print(fnClose)
-	p.printNewline()
-}
-
+// const|let|var x = require('x')
 func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 	maybeRequires := p.extractRequireDeclarations(local)
 	if !hasRequire(maybeRequires) {
@@ -191,9 +119,10 @@ func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 		if maybeRequire.isRequire {
 			require := maybeRequire.require
 
-			fnCall := fmt.Sprintf("__get_%s__()", require.identifierName)
+			id := require.identifierName
+			fnCall := functionNameForId(id)
+			p.printRequireReplacement(require.getRequireExpr(), id, fnCall, true)
 			p.renamer.Replace(require.identifier, fnCall)
-			p.printRequireReplacement(require, fnCall)
 		} else {
 			p.printNonRequire(maybeRequire.nonRequire)
 		}

@@ -12,3 +12,7 @@ func stringifyEString(estring *js_ast.EString) string {
 	}
 	return s
 }
+
+func functionNameForId(id string) string {
+	return fmt.Sprintf("__get_%s__()", id)
+}
