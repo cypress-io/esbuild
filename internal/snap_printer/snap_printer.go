@@ -443,7 +443,7 @@ type printer struct {
 
 	// For snapshot
 	shouldReplaceRequire func(string) bool
-	declRefLocs          map[js_ast.Ref]int
+	refDecls             map[js_ast.Ref]*refDecl
 }
 
 type lineOffsetTable struct {
@@ -2943,7 +2943,7 @@ func createPrinter(
 	approximateLineCount int32,
 	shouldReplaceRequire func(string) bool,
 ) *printer {
-	declRefLocs := make(map[js_ast.Ref]int)
+	declRefLocs := make(map[js_ast.Ref]*refDecl)
 	p := &printer{
 		symbols:            symbols,
 		renamer:            r,
@@ -2971,7 +2971,7 @@ func createPrinter(
 		coverLinesWithoutMappings: options.InputSourceMap == nil,
 
 		shouldReplaceRequire: shouldReplaceRequire,
-		declRefLocs:          declRefLocs,
+		refDecls:             declRefLocs,
 	}
 
 	// If we're writing out a source map, prepare a table of line start indices
