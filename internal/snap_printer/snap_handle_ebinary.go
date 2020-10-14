@@ -26,7 +26,6 @@ func (p *printer) printRequireReplacementFunctionAssign(require RequireExpr, bin
 	p.printExpr(require.requireCall, js_ast.LLowest, 0)
 	p.printNewline()
 	p.print(fnClose)
-	p.printNewline()
 }
 
 
