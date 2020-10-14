@@ -443,6 +443,7 @@ type printer struct {
 
 	// For snapshot
 	shouldReplaceRequire func(string) bool
+	declRefLocs          map[js_ast.Ref]int
 }
 
 type lineOffsetTable struct {
@@ -1870,81 +1871,83 @@ func (p *printer) printExpr(expr js_ast.Expr, level js_ast.L, flags int) {
 		}
 
 	case *js_ast.EBinary:
-		entry := js_ast.OpTable[e.Op]
-		wrap := level >= entry.Level || (e.Op == js_ast.BinOpIn && (flags&forbidIn) != 0)
+		if handled := p.handleEBinary(e); !handled {
+			entry := js_ast.OpTable[e.Op]
+			wrap := level >= entry.Level || (e.Op == js_ast.BinOpIn && (flags&forbidIn) != 0)
 
-		// Destructuring assignments must be parenthesized
-		if n := len(p.js); p.stmtStart == n || p.arrowExprStart == n {
-			if _, ok := e.Left.Data.(*js_ast.EObject); ok {
-				wrap = true
-			}
-		}
-
-		if wrap {
-			p.print("(")
-			flags &= ^forbidIn
-		}
-
-		leftLevel := entry.Level - 1
-		rightLevel := entry.Level - 1
-
-		if e.Op.IsRightAssociative() {
-			leftLevel = entry.Level
-		}
-		if e.Op.IsLeftAssociative() {
-			rightLevel = entry.Level
-		}
-
-		switch e.Op {
-		case js_ast.BinOpNullishCoalescing:
-			// "??" can't directly contain "||" or "&&" without being wrapped in parentheses
-			if left, ok := e.Left.Data.(*js_ast.EBinary); ok && (left.Op == js_ast.BinOpLogicalOr || left.Op == js_ast.BinOpLogicalAnd) {
-				leftLevel = js_ast.LPrefix
-			}
-			if right, ok := e.Right.Data.(*js_ast.EBinary); ok && (right.Op == js_ast.BinOpLogicalOr || right.Op == js_ast.BinOpLogicalAnd) {
-				rightLevel = js_ast.LPrefix
-			}
-
-		case js_ast.BinOpPow:
-			// "**" can't contain certain unary expressions
-			if left, ok := e.Left.Data.(*js_ast.EUnary); ok && left.Op.UnaryAssignTarget() == js_ast.AssignTargetNone {
-				leftLevel = js_ast.LCall
-			} else if _, ok := e.Left.Data.(*js_ast.EUndefined); ok {
-				// Undefined is printed as "void 0"
-				leftLevel = js_ast.LCall
-			} else if _, ok := e.Left.Data.(*js_ast.ENumber); ok {
-				// Negative numbers are printed using a unary operator
-				leftLevel = js_ast.LCall
-			} else if p.options.MangleSyntax {
-				// When minifying, booleans are printed as "!0 and "!1"
-				if _, ok := e.Left.Data.(*js_ast.EBoolean); ok {
-					leftLevel = js_ast.LCall
+			// Destructuring assignments must be parenthesized
+			if n := len(p.js); p.stmtStart == n || p.arrowExprStart == n {
+				if _, ok := e.Left.Data.(*js_ast.EObject); ok {
+					wrap = true
 				}
 			}
-		}
 
-		p.printExpr(e.Left, leftLevel, flags&forbidIn)
+			if wrap {
+				p.print("(")
+				flags &= ^forbidIn
+			}
 
-		if e.Op != js_ast.BinOpComma {
+			leftLevel := entry.Level - 1
+			rightLevel := entry.Level - 1
+
+			if e.Op.IsRightAssociative() {
+				leftLevel = entry.Level
+			}
+			if e.Op.IsLeftAssociative() {
+				rightLevel = entry.Level
+			}
+
+			switch e.Op {
+			case js_ast.BinOpNullishCoalescing:
+				// "??" can't directly contain "||" or "&&" without being wrapped in parentheses
+				if left, ok := e.Left.Data.(*js_ast.EBinary); ok && (left.Op == js_ast.BinOpLogicalOr || left.Op == js_ast.BinOpLogicalAnd) {
+					leftLevel = js_ast.LPrefix
+				}
+				if right, ok := e.Right.Data.(*js_ast.EBinary); ok && (right.Op == js_ast.BinOpLogicalOr || right.Op == js_ast.BinOpLogicalAnd) {
+					rightLevel = js_ast.LPrefix
+				}
+
+			case js_ast.BinOpPow:
+				// "**" can't contain certain unary expressions
+				if left, ok := e.Left.Data.(*js_ast.EUnary); ok && left.Op.UnaryAssignTarget() == js_ast.AssignTargetNone {
+					leftLevel = js_ast.LCall
+				} else if _, ok := e.Left.Data.(*js_ast.EUndefined); ok {
+					// Undefined is printed as "void 0"
+					leftLevel = js_ast.LCall
+				} else if _, ok := e.Left.Data.(*js_ast.ENumber); ok {
+					// Negative numbers are printed using a unary operator
+					leftLevel = js_ast.LCall
+				} else if p.options.MangleSyntax {
+					// When minifying, booleans are printed as "!0 and "!1"
+					if _, ok := e.Left.Data.(*js_ast.EBoolean); ok {
+						leftLevel = js_ast.LCall
+					}
+				}
+			}
+
+			p.printExpr(e.Left, leftLevel, flags&forbidIn)
+
+			if e.Op != js_ast.BinOpComma {
+				p.printSpace()
+			}
+
+			if entry.IsKeyword {
+				p.printSpaceBeforeIdentifier()
+				p.print(entry.Text)
+			} else {
+				p.printSpaceBeforeOperator(e.Op)
+				p.print(entry.Text)
+				p.prevOp = e.Op
+				p.prevOpEnd = len(p.js)
+			}
+
 			p.printSpace()
-		}
 
-		if entry.IsKeyword {
-			p.printSpaceBeforeIdentifier()
-			p.print(entry.Text)
-		} else {
-			p.printSpaceBeforeOperator(e.Op)
-			p.print(entry.Text)
-			p.prevOp = e.Op
-			p.prevOpEnd = len(p.js)
-		}
+			p.printExpr(e.Right, rightLevel, flags&forbidIn)
 
-		p.printSpace()
-
-		p.printExpr(e.Right, rightLevel, flags&forbidIn)
-
-		if wrap {
-			p.print(")")
+			if wrap {
+				p.print(")")
+			}
 		}
 
 	default:
@@ -2158,12 +2161,18 @@ func (p *printer) printDecls(keyword string, decls []js_ast.Decl, flags int) {
 	p.print(keyword)
 	p.printSpace()
 
+	refs := make([]js_ast.Ref, len(decls))
+
 	for i, decl := range decls {
 		if i != 0 {
 			p.print(",")
 			p.printSpace()
 		}
 		p.printBinding(decl.Binding)
+		ref, _, ok := p.extractBinding(decl.Binding)
+		if ok {
+			refs = append(refs, ref)
+		}
 
 		if decl.Value != nil {
 			p.printSpace()
@@ -2171,6 +2180,11 @@ func (p *printer) printDecls(keyword string, decls []js_ast.Decl, flags int) {
 			p.printSpace()
 			p.printExpr(*decl.Value, js_ast.LComma, flags)
 		}
+	}
+
+	declEnd := len(p.js)
+	for _, ref := range refs {
+		p.trackRefDeclEnd(ref, declEnd)
 	}
 }
 
@@ -2929,6 +2943,7 @@ func createPrinter(
 	approximateLineCount int32,
 	shouldReplaceRequire func(string) bool,
 ) *printer {
+	declRefLocs := make(map[js_ast.Ref]int)
 	p := &printer{
 		symbols:            symbols,
 		renamer:            r,
@@ -2956,6 +2971,7 @@ func createPrinter(
 		coverLinesWithoutMappings: options.InputSourceMap == nil,
 
 		shouldReplaceRequire: shouldReplaceRequire,
+		declRefLocs:          declRefLocs,
 	}
 
 	// If we're writing out a source map, prepare a table of line start indices

@@ -1,6 +1,7 @@
 package snap_printer
 
 import (
+	"fmt"
 	"github.com/evanw/esbuild/internal/js_ast"
 )
 
@@ -21,14 +22,6 @@ func hasRequire(maybeRequires []MaybeRequireDecl) bool {
 //
 func (p *printer) nameForSymbol(ref js_ast.Ref) string {
 	return p.renamer.NameForSymbol(ref)
-}
-
-func (p *printer) extractBinding(binding js_ast.Binding) (js_ast.Ref, string, bool) {
-	switch b := binding.Data.(type) {
-	case *js_ast.BIdentifier:
-		return b.Ref, p.nameForSymbol(b.Ref), true
-	}
-	return js_ast.Ref{}, "", false
 }
 
 func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool) {
@@ -108,6 +101,24 @@ func (p *printer) printNonRequire(nonRequire NonRequireDecl) {
 	}
 }
 
+func (p *printer) printRequireReplacementFunctionDeclaration(require RequireExpr, bindingId string, fnCall string) {
+	idDeclaration := fmt.Sprintf("let %s;", bindingId)
+	fnHeader := fmt.Sprintf("function %s {", fnCall)
+	fnBodyStart := fmt.Sprintf("  return %s = %s || ", bindingId, bindingId)
+	fnClose := "}"
+
+	p.printNewline()
+	p.print(idDeclaration)
+	p.printNewline()
+	p.print(fnHeader)
+	p.printNewline()
+	p.print(fnBodyStart)
+	p.printExpr(require.requireCall, js_ast.LLowest, 0)
+	p.printNewline()
+	p.print(fnClose)
+	p.printNewline()
+}
+
 // const|let|var x = require('x')
 func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 	maybeRequires := p.extractRequireDeclarations(local)
@@ -120,8 +131,8 @@ func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 			require := maybeRequire.require
 
 			id := require.identifierName
-			fnCall := functionNameForId(id)
-			p.printRequireReplacement(require.getRequireExpr(), id, fnCall, true)
+			fnCall := functionCallForId(id)
+			p.printRequireReplacementFunctionDeclaration(require.getRequireExpr(), id, fnCall)
 			p.renamer.Replace(require.identifier, fnCall)
 		} else {
 			p.printNonRequire(maybeRequire.nonRequire)

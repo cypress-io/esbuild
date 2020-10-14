@@ -14,6 +14,22 @@ func (p *printer) extractIdentifier(expr *js_ast.Expr) (js_ast.Ref, string, bool
 	return js_ast.Ref{}, "", false
 }
 
+func (p *printer) printRequireReplacementFunctionAssign(require RequireExpr, bindingId string, fnName string) {
+	fnHeader := fmt.Sprintf("%s = function() {", fnName)
+	fnBodyStart := fmt.Sprintf("  return %s = %s || ", bindingId, bindingId)
+	fnClose := "}"
+
+	p.printNewline()
+	p.print(fnHeader)
+	p.printNewline()
+	p.print(fnBodyStart)
+	p.printExpr(require.requireCall, js_ast.LLowest, 0)
+	p.printNewline()
+	p.print(fnClose)
+	p.printNewline()
+}
+
+
 
 // similar to slocal but assigning to an already declared variable
 // x = require('x')
@@ -25,24 +41,18 @@ func (p *printer) handleEBinary(e *js_ast.EBinary) (handled bool) {
 	require, isRequire := p.extractRequireExpression(e.Right)
 	if !isRequire { return false }
 
-	_, id, isId := p.extractIdentifier(&e.Left)
+	idRef, bindingId, isId := p.extractIdentifier(&e.Left)
 	if !isId { return false }
 
 	// TODO: handle destructured assignment
 
-	fnCall := functionNameForId(id)
-	fnHeader := fmt.Sprintf("function %s {", fnCall)
-	fnBodyStart := fmt.Sprintf("  return %s = %s || ", id, id)
-	fnClose := "}"
+	fnName := functionNameForId(bindingId)
+	// Splicing on same line as declaration end to hopefully prevent messing source maps up too much
+	// TODO: verify how much this affects sourcemaps and if we need valid ones add code to fix them after
+	p.spliceAfterDeclEnd(idRef, fmt.Sprintf("let %s;", fnName))
+	p.printRequireReplacementFunctionAssign(require, bindingId, fnName)
 
-	p.printNewline()
-	p.print(fnHeader)
-	p.printNewline()
-	p.print(fnBodyStart)
-	p.printExpr(require.requireCall, js_ast.LLowest, 0)
-	p.printNewline()
-	p.print(fnClose)
-	p.printNewline()
+	p.renamer.Replace(idRef, fnName)
 
 	return true
 }

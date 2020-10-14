@@ -1,7 +1,6 @@
 package snap_printer
 
 import (
-	"fmt"
 	"github.com/evanw/esbuild/internal/js_ast"
 )
 
@@ -75,26 +74,11 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr) (RequireExpr, bool)
 	return RequireExpr{}, false
 }
 
-//
-// Printers
-//
-func (p *printer) printRequireReplacement(require RequireExpr, bindingId string, fnCall string, printDeclaration bool) {
-	if printDeclaration {
-		idDeclaration := fmt.Sprintf("let %s;", bindingId)
-		p.printNewline()
-		p.print(idDeclaration)
+func (p *printer) extractBinding(binding js_ast.Binding) (js_ast.Ref, string, bool) {
+	switch b := binding.Data.(type) {
+	case *js_ast.BIdentifier:
+		return b.Ref, p.nameForSymbol(b.Ref), true
 	}
-
-	fnHeader := fmt.Sprintf("function %s {", fnCall)
-	fnBodyStart := fmt.Sprintf("  return %s = %s || ", bindingId, bindingId)
-	fnClose := "}"
-
-	p.printNewline()
-	p.print(fnHeader)
-	p.printNewline()
-	p.print(fnBodyStart)
-	p.printExpr(require.requireCall, js_ast.LLowest, 0)
-	p.printNewline()
-	p.print(fnClose)
-	p.printNewline()
+	return js_ast.Ref{}, "", false
 }
+

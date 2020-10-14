@@ -14,8 +14,12 @@ func NewSnapRenamer(symbols js_ast.SymbolMap) SnapRenamer {
 	}
 }
 
+func (r *SnapRenamer) resolveRefFromSymbols(ref js_ast.Ref) js_ast.Ref {
+	return js_ast.FollowSymbols(r.symbols, ref)
+}
+
 func (r *SnapRenamer) NameForSymbol(ref js_ast.Ref) string {
-	ref = js_ast.FollowSymbols(r.symbols, ref)
+	ref = r.resolveRefFromSymbols(ref)
 	deferredIdentifier, ok := r.deferredIdentifiers[ref]
 	if ok {
 		return deferredIdentifier
@@ -24,6 +28,6 @@ func (r *SnapRenamer) NameForSymbol(ref js_ast.Ref) string {
 }
 
 func (r *SnapRenamer) Replace(ref js_ast.Ref, replacement string) {
-	ref = js_ast.FollowSymbols(r.symbols, ref)
+	ref = r.resolveRefFromSymbols(ref)
 	r.deferredIdentifiers[ref] = replacement
 }
