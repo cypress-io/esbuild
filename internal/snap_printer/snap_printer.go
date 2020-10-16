@@ -443,7 +443,7 @@ type printer struct {
 
 	// For snapshot
 	shouldReplaceRequire func(string) bool
-	refDecls             map[js_ast.Ref]*refDecl
+	topLevelVars         []string
 }
 
 type lineOffsetTable struct {
@@ -2161,30 +2161,18 @@ func (p *printer) printDecls(keyword string, decls []js_ast.Decl, flags int) {
 	p.print(keyword)
 	p.printSpace()
 
-	refs := make([]js_ast.Ref, len(decls))
-
 	for i, decl := range decls {
 		if i != 0 {
 			p.print(",")
 			p.printSpace()
 		}
 		p.printBinding(decl.Binding)
-		ref, _, ok := p.extractBinding(decl.Binding)
-		if ok {
-			refs = append(refs, ref)
-		}
-
 		if decl.Value != nil {
 			p.printSpace()
 			p.print("=")
 			p.printSpace()
 			p.printExpr(*decl.Value, js_ast.LComma, flags)
 		}
-	}
-
-	declEnd := len(p.js)
-	for _, ref := range refs {
-		p.trackRefDeclEnd(ref, declEnd)
 	}
 }
 
@@ -2943,7 +2931,7 @@ func createPrinter(
 	approximateLineCount int32,
 	shouldReplaceRequire func(string) bool,
 ) *printer {
-	declRefLocs := make(map[js_ast.Ref]*refDecl)
+	topLevelDecls := make([]string, 0)
 	p := &printer{
 		symbols:            symbols,
 		renamer:            r,
@@ -2971,7 +2959,7 @@ func createPrinter(
 		coverLinesWithoutMappings: options.InputSourceMap == nil,
 
 		shouldReplaceRequire: shouldReplaceRequire,
-		refDecls:             declRefLocs,
+		topLevelVars:         topLevelDecls            ,
 	}
 
 	// If we're writing out a source map, prepare a table of line start indices
@@ -3011,6 +2999,7 @@ func Print(
 	}
 
 	p.updateGeneratedLineAndColumn()
+	p.prependTopLevelDecls()
 
 	return PrintResult{
 		JS:                p.js,

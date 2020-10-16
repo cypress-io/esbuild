@@ -46,9 +46,7 @@ func (p *printer) handleEBinary(e *js_ast.EBinary) (handled bool) {
 	// TODO: handle destructured assignment
 
 	fnName := functionNameForId(bindingId)
-	// Splicing on same line as declaration end to hopefully prevent messing source maps up too much
-	// TODO: verify how much this affects sourcemaps and if we need valid ones add code to fix them after
-	p.spliceAfterDeclEnd(idRef, fmt.Sprintf("let %s;", fnName))
+	p.trackTopLevelVar(fnName)
 	p.printRequireReplacementFunctionAssign(require, bindingId, fnName)
 
 	p.renamer.Replace(idRef, fnName)

@@ -76,3 +76,66 @@ function logFoo() {
 }
 `, ReplaceAll)
 }
+
+func TestSingleLateAssignment(t *testing.T) {
+	expectPrinted(t, `
+let a;
+a = require('a')
+`, `
+let __get_a__;
+let a;
+
+__get_a__ = function() {
+  return a = a || require("a")
+};
+`, ReplaceAll)
+}
+
+func TestDoubleLateAssignment(t *testing.T) {
+	expectPrinted(t, `
+let a, b;
+a = require('a')
+b = require('b')
+`, `
+let __get_a__, __get_b__;
+let a, b;
+
+__get_a__ = function() {
+  return a = a || require("a")
+};
+
+__get_b__ = function() {
+  return b = b || require("b")
+};
+`, ReplaceAll)
+}
+
+func TestSingleLateAssignmentWithReference(t *testing.T) {
+	expectPrinted(t, `
+let a;
+a = require('a')
+`, `
+let __get_a__;
+let a;
+
+__get_a__ = function() {
+  return a = a || require("a")
+};
+`, ReplaceAll)
+}
+
+func TestDoubleLateAssignmentReplaceFilter(t *testing.T) {
+	expectPrinted(t, `
+let a, b;
+a = require('a')
+b = require('b')
+`, `
+let __get_a__;
+let a, b;
+
+__get_a__ = function() {
+  return a = a || require("a")
+};
+b = require("b");
+`, func(mod string) bool { return mod == "a" })
+}
