@@ -31,13 +31,31 @@ func prepend(p *printer, s string) {
 }
 
 func (p *printer) prependTopLevelDecls() {
-	if len(p.topLevelVars) == 0 { return }
+	if len(p.topLevelVars) == 0 {
+		return
+	}
 	decl := "let "
 	for i, v := range p.topLevelVars {
-		if i > 0 { decl += ", " }
+		if i > 0 {
+			decl += ", "
+		}
 		decl += v
 	}
 	// TODO: consider not adding a newline here to avoid affecting source-mapped lines
 	decl += ";\n"
 	prepend(p, decl)
+}
+
+//
+// Rewrite global console ref
+//
+func (p *printer) rewriteConsole() {
+	// global console ref is always located inside "file" 0 if it is present
+	outer := &p.symbols.Outer[0]
+	for i, ref := range *outer {
+		if ref.OriginalName == "console" {
+			(*outer)[i].OriginalName = "__get_console__()"
+			return
+		}
+	}
 }

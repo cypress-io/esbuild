@@ -179,9 +179,8 @@ function __get_c__() {
 }
 
 // test('references to shadowed variables')
-// TODO: this behaves as expected except for console.log not getting rewritten
-func _TestElinkReferencesToShadowedVars(t *testing.T) {
-	debugPrinted(t, `
+func TestElinkReferencesToShadowedVars(t *testing.T) {
+	expectPrinted(t, `
 const a = require('a')
 function outer () {
   console.log(a)
@@ -196,6 +195,25 @@ function other () {
   function inner () {
     let a = []
     console.log(a)
+  }
+}
+`, `
+let a;
+function __get_a__() {
+  return a = a || require("a")
+}
+function outer() {
+  __get_console__().log(a);
+  function inner() {
+    __get_console__().log(a);
+  }
+  let a = [];
+}
+function other() {
+  __get_console__().log(__get_a__());
+  function inner() {
+    let a = [];
+    __get_console__().log(a);
   }
 }
 `,

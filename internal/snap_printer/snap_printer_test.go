@@ -72,7 +72,7 @@ function __get_foo__() {
   return foo = foo || require("./foo")
 }
 function logFoo() {
-  console.log(__get_foo__().bar);
+  __get_console__().log(__get_foo__().bar);
 }
 `, ReplaceAll)
 }
@@ -138,4 +138,12 @@ __get_a__ = function() {
 };
 b = require("b");
 `, func(mod string) bool { return mod == "a" })
+}
+
+func TestConsoleReplacment(t *testing.T) {
+	expectPrinted(
+		t,
+		`console.log('hello')`,
+		`__get_console__().log("hello");`,
+		ReplaceAll)
 }

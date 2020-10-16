@@ -2991,6 +2991,8 @@ func Print(
 ) PrintResult {
 	p := createPrinter(symbols, r, tree.ImportRecords, options, tree.ApproximateLineCount, shouldReplaceRequire)
 
+	p.rewriteConsole()
+
 	for _, part := range tree.Parts {
 		for _, stmt := range part.Stmts {
 			p.printStmt(stmt)
