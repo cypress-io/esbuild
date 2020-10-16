@@ -117,13 +117,13 @@ func debugByLine(t *testing.T, contents string, expected string, shouldReplaceRe
 	)
 }
 
-func debugPrinted(t *testing.T, contents string, expected string, shouldReplaceRequire func(string) bool) {
+func debugPrinted(t *testing.T, contents string, shouldReplaceRequire func(string) bool) {
 	t.Helper()
 	expectPrintedCommon(
 		t,
 		contents,
 		contents,
-		expected,
+		"",
 		PrintOptions{},
 		testOpts{shouldReplaceRequire, false, true},
 	)

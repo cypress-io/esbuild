@@ -177,3 +177,27 @@ function __get_c__() {
 `,
 		func(mod string) bool { return mod == "a" || mod == "c" })
 }
+
+// test('references to shadowed variables')
+// TODO: this behaves as expected except for console.log not getting rewritten
+func _TestElinkReferencesToShadowedVars(t *testing.T) {
+	debugPrinted(t, `
+const a = require('a')
+function outer () {
+  console.log(a)
+  function inner () {
+    console.log(a)
+  }
+  let a = []
+}
+
+function other () {
+  console.log(a)
+  function inner () {
+    let a = []
+    console.log(a)
+  }
+}
+`,
+		func(mod string) bool { return mod == "a" })
+}
