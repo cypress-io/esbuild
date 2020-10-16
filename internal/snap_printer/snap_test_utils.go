@@ -38,7 +38,7 @@ func RunOnly(
 	r := snap_renamer.NewSnapRenamer(symbols)
 	var js []byte
 	js = Print(tree, symbols, r, options, ReplaceAll).JS
-	fmt.Printf(strings.TrimSpace(string(js)))
+	fmt.Println(strings.TrimSpace(string(js)))
 }
 
 func assertEqual(t *testing.T, a interface{}, b interface{}) {
@@ -48,13 +48,23 @@ func assertEqual(t *testing.T, a interface{}, b interface{}) {
 	}
 }
 
+type TestOpts struct {
+	shouldReplaceRequire func(string) bool
+	compareByLine        bool
+	debug                bool
+}
+
+func showSpaces(s string) string {
+	return strings.ReplaceAll(s, " ", "^")
+}
+
 func expectPrintedCommon(
 	t *testing.T,
 	name string,
 	contents string,
 	expected string,
 	options PrintOptions,
-	shouldReplaceRequire func(string) bool,
+	testOpts TestOpts,
 ) {
 	t.Helper()
 	t.Run(name, func(t *testing.T) {
@@ -75,8 +85,24 @@ func expectPrintedCommon(
 		symbols := js_ast.NewSymbolMap(1)
 		symbols.Outer[0] = tree.Symbols
 		r := snap_renamer.NewSnapRenamer(symbols)
-		js := Print(tree, symbols, r, options, shouldReplaceRequire).JS
-		assertEqual(t, strings.TrimSpace(string(js)), strings.TrimSpace(expected))
+		js := Print(tree, symbols, r, options, testOpts.shouldReplaceRequire).JS
+		actualTrimmed := strings.TrimSpace(string(js))
+		expectedTrimmed := strings.TrimSpace(expected)
+		if testOpts.compareByLine {
+			actualLines := strings.Split(actualTrimmed, "\n")
+			expectedLines := strings.Split(expectedTrimmed, "\n")
+			for i, act := range actualLines {
+				exp := expectedLines[i]
+				if testOpts.debug {
+					fmt.Printf("\nact: %s\nexp: %s", showSpaces(act), showSpaces(exp))
+				} else {
+					assertEqual(t, act, exp)
+				}
+			}
+
+		} else {
+			assertEqual(t, actualTrimmed, expectedTrimmed)
+		}
 	})
 }
 
@@ -88,7 +114,32 @@ func expectPrinted(t *testing.T, contents string, expected string, shouldReplace
 		contents,
 		expected,
 		PrintOptions{},
-		shouldReplaceRequire)
+		TestOpts{shouldReplaceRequire, false, false},
+	)
+}
+
+func expectByLine(t *testing.T, contents string, expected string, shouldReplaceRequire func(string) bool) {
+	t.Helper()
+	expectPrintedCommon(
+		t,
+		contents,
+		contents,
+		expected,
+		PrintOptions{},
+		TestOpts{shouldReplaceRequire, true, false},
+	)
+}
+
+func debugByLine(t *testing.T, contents string, expected string, shouldReplaceRequire func(string) bool) {
+	t.Helper()
+	expectPrintedCommon(
+		t,
+		contents,
+		contents,
+		expected,
+		PrintOptions{},
+		TestOpts{shouldReplaceRequire, true, true},
+	)
 }
 
 func ReplaceAll(string) bool { return true }
