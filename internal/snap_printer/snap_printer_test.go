@@ -155,3 +155,26 @@ func TestProcessReplacement(t *testing.T) {
 		`get_process().a = 1;`,
 		ReplaceAll)
 }
+
+func TestReferencingGlobalProcessAndConstOfSameNamet(t *testing.T) {
+	expectPrinted(
+		t,
+		`
+{
+  process.a = 1
+}
+{
+  const process = {}
+  process.b = 1
+}
+`,`
+{
+  get_process().a = 1;
+}
+{
+  const process = {};
+  process.b = 1;
+}
+`,
+		ReplaceAll)
+}

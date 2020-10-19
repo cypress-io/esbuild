@@ -1,5 +1,7 @@
 package snap_printer
 
+import "github.com/evanw/esbuild/internal/js_ast"
+
 // Tracks `let` statements that need to be inserted at the top level scope and
 // the top of the file.
 // This is the simplest way to ensure that the replacement functions are declared
@@ -53,10 +55,15 @@ func (p *printer) rewriteGlobals() {
 	// global console ref is always located inside "file" 0 if it is present
 	outer := &p.symbols.Outer[0]
 	for i, ref := range *outer {
-		for _, global := range snap_globals {
-			if ref.OriginalName == global {
-				(*outer)[i].OriginalName = functionCallForGlobal(global)
-				continue
+		// Globals aren't declared anywhere and thus are unbound
+		if ref.Kind != js_ast.SymbolUnbound {
+			continue
+		} else {
+			for _, global := range snap_globals {
+				if ref.OriginalName == global {
+					(*outer)[i].OriginalName = functionCallForGlobal(global)
+					continue
+				}
 			}
 		}
 	}

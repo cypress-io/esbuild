@@ -221,9 +221,8 @@ function other() {
 }
 
 // test('references to globals')
-// TODO: currently fails due to rewriting `const window` which it shouldn't
-func _TestElinkReferencesToGlobals(t *testing.T) {
-	debugPrinted(t, `
+func TestElinkReferencesToGlobals(t *testing.T) {
+	expectPrinted(t, `
 global.a = 1
 process.b = 2
 window.c = 3
@@ -235,6 +234,18 @@ function inner () {
   process.f = 5
   window.g = 6
   document.h = 7
+}
+`, `
+get_global().a = 1;
+get_process().b = 2;
+get_window().c = 3;
+get_document().d = 4;
+function inner() {
+  const window = {};
+  get_global().e = 4;
+  get_process().f = 5;
+  window.g = 6;
+  get_document().h = 7;
 }
 `, ReplaceAll)
 }
