@@ -2959,7 +2959,7 @@ func createPrinter(
 		coverLinesWithoutMappings: options.InputSourceMap == nil,
 
 		shouldReplaceRequire: shouldReplaceRequire,
-		topLevelVars:         topLevelDecls            ,
+		topLevelVars:         topLevelDecls,
 	}
 
 	// If we're writing out a source map, prepare a table of line start indices
@@ -2991,7 +2991,7 @@ func Print(
 ) PrintResult {
 	p := createPrinter(symbols, r, tree.ImportRecords, options, tree.ApproximateLineCount, shouldReplaceRequire)
 
-	p.rewriteConsole()
+	p.rewriteGlobals()
 
 	for _, part := range tree.Parts {
 		for _, stmt := range part.Stmts {

@@ -203,19 +203,38 @@ function __get_a__() {
   return a = a || require("a")
 }
 function outer() {
-  __get_console__().log(a);
+  get_console().log(a);
   function inner() {
-    __get_console__().log(a);
+    get_console().log(a);
   }
   let a = [];
 }
 function other() {
-  __get_console__().log(__get_a__());
+  get_console().log(__get_a__());
   function inner() {
     let a = [];
-    __get_console__().log(a);
+    get_console().log(a);
   }
 }
 `,
 		func(mod string) bool { return mod == "a" })
+}
+
+// test('references to globals')
+// TODO: currently fails due to rewriting `const window` which it shouldn't
+func _TestElinkReferencesToGlobals(t *testing.T) {
+	debugPrinted(t, `
+global.a = 1
+process.b = 2
+window.c = 3
+document.d = 4
+
+function inner () {
+  const window = {}
+  global.e = 4
+  process.f = 5
+  window.g = 6
+  document.h = 7
+}
+`, ReplaceAll)
 }

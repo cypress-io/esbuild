@@ -47,15 +47,17 @@ func (p *printer) prependTopLevelDecls() {
 }
 
 //
-// Rewrite global console ref
+// Rewrite globals
 //
-func (p *printer) rewriteConsole() {
+func (p *printer) rewriteGlobals() {
 	// global console ref is always located inside "file" 0 if it is present
 	outer := &p.symbols.Outer[0]
 	for i, ref := range *outer {
-		if ref.OriginalName == "console" {
-			(*outer)[i].OriginalName = "__get_console__()"
-			return
+		for _, global := range snap_globals {
+			if ref.OriginalName == global {
+				(*outer)[i].OriginalName = functionCallForGlobal(global)
+				continue
+			}
 		}
 	}
 }

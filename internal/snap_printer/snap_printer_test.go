@@ -72,7 +72,7 @@ function __get_foo__() {
   return foo = foo || require("./foo")
 }
 function logFoo() {
-  __get_console__().log(__get_foo__().bar);
+  get_console().log(__get_foo__().bar);
 }
 `, ReplaceAll)
 }
@@ -144,6 +144,14 @@ func TestConsoleReplacment(t *testing.T) {
 	expectPrinted(
 		t,
 		`console.log('hello')`,
-		`__get_console__().log("hello");`,
+		`get_console().log("hello");`,
+		ReplaceAll)
+}
+
+func TestProcessReplacement(t *testing.T) {
+	expectPrinted(
+		t,
+		`process.a = 1`,
+		`get_process().a = 1;`,
 		ReplaceAll)
 }
