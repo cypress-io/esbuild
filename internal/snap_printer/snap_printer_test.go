@@ -246,3 +246,25 @@ function id() {
 `,ReplaceAll)
 }
 
+func TestDestructuringLateAssignmentReferenced(t *testing.T) {
+	expectPrinted(t, `
+let foo, bar;
+({ foo, bar } = require('foo-bar'))
+function id() {
+  foo.id = 'hello'
+}
+`, `
+let __get_foo__, __get_bar__;
+let foo, bar;
+
+__get_foo__ = function() {
+  return foo = foo || require("foo-bar").foo
+}
+__get_bar__ = function() {
+  return bar = bar || require("foo-bar").bar
+};
+function id() {
+  __get_foo__().id = "hello";
+}
+`, ReplaceAll)
+}

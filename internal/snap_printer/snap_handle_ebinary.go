@@ -5,16 +5,12 @@ import (
 	"github.com/evanw/esbuild/internal/js_ast"
 )
 
-func (p *printer) extractIdentifier(expr *js_ast.Expr) (js_ast.Ref, string, bool) {
-	switch eid := expr.Data.(type) {
-	case *js_ast.EIdentifier:
-		return eid.Ref, p.nameForSymbol(eid.Ref), true
-	}
+func (p *printer) printRequireReplacementFunctionAssign(
+	require *RequireExpr,
+	bindingId string,
+	isDestructuring bool,
+	fnName string) {
 
-	return js_ast.Ref{}, "", false
-}
-
-func (p *printer) printRequireReplacementFunctionAssign(require *RequireExpr, bindingId string, fnName string) {
 	fnHeader := fmt.Sprintf("%s = function() {", fnName)
 	fnBodyStart := fmt.Sprintf("  return %s = %s || ", bindingId, bindingId)
 	fnClose := "}"
@@ -24,11 +20,13 @@ func (p *printer) printRequireReplacementFunctionAssign(require *RequireExpr, bi
 	p.printNewline()
 	p.print(fnBodyStart)
 	p.printRequireBody(require)
+	if isDestructuring {
+		p.print(".")
+		p.print(bindingId)
+	}
 	p.printNewline()
 	p.print(fnClose)
 }
-
-
 
 // similar to slocal but assigning to an already declared variable
 // x = require('x')
@@ -38,18 +36,23 @@ func (p *printer) handleEBinary(e *js_ast.EBinary) (handled bool) {
 	}
 
 	require, isRequire := p.extractRequireExpression(e.Right, 0)
-	if !isRequire { return false }
+	if !isRequire {
+		return false
+	}
 
-	idRef, bindingId, isId := p.extractIdentifier(&e.Left)
-	if !isId { return false }
+	identifiers, ok := p.extractIdentifiers(e.Left.Data)
+	if !ok {
+		return false
+	}
 
-	// TODO: handle destructured assignment
-
-	fnName := functionNameForId(bindingId)
-	p.trackTopLevelVar(fnName)
-	p.printRequireReplacementFunctionAssign(require, bindingId, fnName)
-
-	p.renamer.Replace(idRef, fnName)
+	for _, b := range identifiers {
+		id := b.identifierName
+		fnName := functionNameForId(id)
+		fnCall := functionCallForId(id)
+		p.trackTopLevelVar(fnName)
+		p.printRequireReplacementFunctionAssign(require, id, b.isDestructuring, fnName)
+		p.renamer.Replace(b.identifier, fnCall)
+	}
 
 	return true
 }

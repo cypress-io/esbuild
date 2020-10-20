@@ -120,6 +120,37 @@ func (p *printer) extractBindings(binding js_ast.Binding) ([]RequireBinding, boo
 	return []RequireBinding{}, false
 }
 
+func (p *printer) extractIdentifier(b js_ast.E, isDestructuring bool) RequireBinding {
+	// NOTE: this duplication (extractBinding) is necessary since there is no common
+	// base for both types of `b`
+	switch b := b.(type) {
+	case *js_ast.EIdentifier:
+		return RequireBinding{
+			identifier:      b.Ref,
+			identifierName:  p.nameForSymbol(b.Ref),
+			isDestructuring: isDestructuring,
+		}
+	default:
+		panic("Expected a EIdentifier")
+	}
+}
+func (p *printer) extractIdentifiers(expr js_ast.E) ([]RequireBinding, bool) {
+	switch b := expr.(type) {
+	case *js_ast.EIdentifier:
+		// a = ...
+		binding := p.extractIdentifier(b, false)
+		return []RequireBinding{binding}, true
+	case *js_ast.EObject:
+		// ({ a, b } = ...)
+		bindings := make([]RequireBinding, len(b.Properties))
+		for i, prop := range b.Properties {
+			bindings[i] = p.extractIdentifier(prop.Value.Data, true)
+		}
+		return bindings, true
+	}
+	return []RequireBinding{}, false
+}
+
 //
 // Printers
 //
