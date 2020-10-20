@@ -167,7 +167,7 @@ func TestReferencingGlobalProcessAndConstOfSameNamet(t *testing.T) {
   const process = {}
   process.b = 1
 }
-`,`
+`, `
 {
   get_process().a = 1;
 }
@@ -179,10 +179,10 @@ func TestReferencingGlobalProcessAndConstOfSameNamet(t *testing.T) {
 		ReplaceAll)
 }
 
-func TestRequirePropertyChain(t *testing.T) {
+func TestRequireDeclPropertyChain(t *testing.T) {
 	expectPrinted(t, `
 const bar = require('foo').bar
-`,`
+`, `
 let bar;
 function __get_bar__() {
   return bar = bar || require("foo").bar
@@ -191,10 +191,36 @@ function __get_bar__() {
 
 	expectPrinted(t, `
 const baz = require('foo').bar.baz
-`,`
+`, `
 let baz;
 function __get_baz__() {
   return baz = baz || require("foo").bar.baz
 }
 `, ReplaceAll)
+}
+
+func TestRequireLateAssignmentPropertyChain(t *testing.T) {
+	expectPrinted(t, `
+let bar
+bar = require('foo').bar
+`,`
+let __get_bar__;
+let bar;
+
+__get_bar__ = function() {
+  return bar = bar || require("foo").bar
+};
+`, ReplaceAll)
+
+	expectPrinted(t, `
+let baz
+baz = require('foo').bar.baz
+`, `
+let __get_baz__;
+let baz;
+
+__get_baz__ = function() {
+  return baz = baz || require("foo").bar.baz
+};
+`,ReplaceAll)
 }

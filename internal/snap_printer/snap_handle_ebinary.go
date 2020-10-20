@@ -24,6 +24,10 @@ func (p *printer) printRequireReplacementFunctionAssign(require RequireExpr, bin
 	p.printNewline()
 	p.print(fnBodyStart)
 	p.printExpr(require.requireCall, js_ast.LLowest, 0)
+	for _, prop := range require.propChain {
+		p.print(".")
+		p.print(prop)
+	}
 	p.printNewline()
 	p.print(fnClose)
 }
