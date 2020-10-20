@@ -178,3 +178,23 @@ func TestReferencingGlobalProcessAndConstOfSameNamet(t *testing.T) {
 `,
 		ReplaceAll)
 }
+
+func TestRequirePropertyChain(t *testing.T) {
+	expectPrinted(t, `
+const bar = require('foo').bar
+`,`
+let bar;
+function __get_bar__() {
+  return bar = bar || require("foo").bar
+}
+`, ReplaceAll)
+
+	expectPrinted(t, `
+const baz = require('foo').bar.baz
+`,`
+let baz;
+function __get_baz__() {
+  return baz = baz || require("foo").bar.baz
+}
+`, ReplaceAll)
+}

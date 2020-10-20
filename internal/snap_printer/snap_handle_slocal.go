@@ -28,7 +28,7 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 	if decl.Value != nil {
 		// First verify that this is a statement that assigns the result of a
 		// `require` call.
-		requireExpr, isRequire := p.extractRequireExpression(*decl.Value)
+		requireExpr, isRequire := p.extractRequireExpression(*decl.Value, 0)
 		if !isRequire {
 			return RequireDecl{}, false
 		}
@@ -114,6 +114,10 @@ func (p *printer) printRequireReplacementFunctionDeclaration(require RequireExpr
 	p.printNewline()
 	p.print(fnBodyStart)
 	p.printExpr(require.requireCall, js_ast.LLowest, 0)
+	for _, prop := range require.propChain {
+		p.print(".")
+		p.print(prop)
+	}
 	p.printNewline()
 	p.print(fnClose)
 	p.printNewline()
