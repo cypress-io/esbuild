@@ -101,7 +101,7 @@ func (p *printer) printNonRequire(nonRequire NonRequireDecl) {
 	}
 }
 
-func (p *printer) printRequireReplacementFunctionDeclaration(require RequireExpr, bindingId string, fnCall string) {
+func (p *printer) printRequireReplacementFunctionDeclaration(require *RequireExpr, bindingId string, fnCall string) {
 	idDeclaration := fmt.Sprintf("let %s;", bindingId)
 	fnHeader := fmt.Sprintf("function %s {", fnCall)
 	fnBodyStart := fmt.Sprintf("  return %s = %s || ", bindingId, bindingId)
@@ -113,11 +113,7 @@ func (p *printer) printRequireReplacementFunctionDeclaration(require RequireExpr
 	p.print(fnHeader)
 	p.printNewline()
 	p.print(fnBodyStart)
-	p.printExpr(require.requireCall, js_ast.LLowest, 0)
-	for _, prop := range require.propChain {
-		p.print(".")
-		p.print(prop)
-	}
+    p.printRequireBody(require)
 	p.printNewline()
 	p.print(fnClose)
 	p.printNewline()

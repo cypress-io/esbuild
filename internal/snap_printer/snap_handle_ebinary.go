@@ -14,7 +14,7 @@ func (p *printer) extractIdentifier(expr *js_ast.Expr) (js_ast.Ref, string, bool
 	return js_ast.Ref{}, "", false
 }
 
-func (p *printer) printRequireReplacementFunctionAssign(require RequireExpr, bindingId string, fnName string) {
+func (p *printer) printRequireReplacementFunctionAssign(require *RequireExpr, bindingId string, fnName string) {
 	fnHeader := fmt.Sprintf("%s = function() {", fnName)
 	fnBodyStart := fmt.Sprintf("  return %s = %s || ", bindingId, bindingId)
 	fnClose := "}"
@@ -23,11 +23,7 @@ func (p *printer) printRequireReplacementFunctionAssign(require RequireExpr, bin
 	p.print(fnHeader)
 	p.printNewline()
 	p.print(fnBodyStart)
-	p.printExpr(require.requireCall, js_ast.LLowest, 0)
-	for _, prop := range require.propChain {
-		p.print(".")
-		p.print(prop)
-	}
+	p.printRequireBody(require)
 	p.printNewline()
 	p.print(fnClose)
 }

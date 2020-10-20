@@ -23,8 +23,8 @@ func (e *RequireExpr) toRequireDecl(identifier js_ast.Ref, identifierName string
 		identifierName}
 }
 
-func (d *RequireDecl) getRequireExpr() RequireExpr {
-	return RequireExpr{requireCall: d.requireCall, requireArg: d.requireArg, propChain: d.propChain}
+func (d *RequireDecl) getRequireExpr() *RequireExpr {
+	return &RequireExpr{requireCall: d.requireCall, requireArg: d.requireArg, propChain: d.propChain}
 }
 
 type NonRequireDecl struct {
@@ -45,7 +45,7 @@ type MaybeRequireDecl struct {
 // Extracts the require call expression including information about the argument to the require call.
 // NOTE: that this does not include any information about the identifier to which the require call
 // result was bound to.
-func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (RequireExpr, bool) {
+func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (*RequireExpr, bool) {
 	switch x := expr.Data.(type) {
 	case *js_ast.ECall:
 		target := x.Target
@@ -63,7 +63,7 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (Require
 						argString = stringifyEString(x)
 					}
 					if p.shouldReplaceRequire(argString) {
-						return RequireExpr{
+						return &RequireExpr{
 							requireCall: expr,
 							requireArg:  argString,
 							propChain:   make([]string, depth),
@@ -85,7 +85,7 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (Require
 		require.propChain[idx] = x.Name
 		return require, true
 	}
-	return RequireExpr{}, false
+	return &RequireExpr{}, false
 }
 
 func (p *printer) extractBinding(binding js_ast.Binding) (js_ast.Ref, string, bool) {
@@ -94,4 +94,15 @@ func (p *printer) extractBinding(binding js_ast.Binding) (js_ast.Ref, string, bo
 		return b.Ref, p.nameForSymbol(b.Ref), true
 	}
 	return js_ast.Ref{}, "", false
+}
+
+//
+// Printers
+//
+func (p *printer) printRequireBody(require *RequireExpr) {
+	p.printExpr(require.requireCall, js_ast.LLowest, 0)
+	for _, prop := range require.propChain {
+		p.print(".")
+		p.print(prop)
+	}
 }
