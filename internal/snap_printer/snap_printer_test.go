@@ -87,8 +87,7 @@ let a;
 
 __get_a__ = function() {
   return a = a || require("a")
-};
-`, ReplaceAll)
+};`, ReplaceAll)
 }
 
 func TestDoubleLateAssignment(t *testing.T) {
@@ -224,3 +223,26 @@ __get_baz__ = function() {
 };
 `,ReplaceAll)
 }
+
+func TestDestructuringDeclarationReferenced(t *testing.T) {
+	expectPrinted(t, `
+const { foo, bar } = require('foo-bar')
+function id() {
+  foo.id = 'hello'
+}
+`, `
+let foo;
+function __get_foo__() {
+  return foo = foo || require("foo-bar").foo
+}
+
+let bar;
+function __get_bar__() {
+  return bar = bar || require("foo-bar").bar
+}
+function id() {
+  __get_foo__().id = "hello";
+}
+`,ReplaceAll)
+}
+

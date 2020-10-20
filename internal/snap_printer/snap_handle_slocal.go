@@ -101,7 +101,12 @@ func (p *printer) printNonRequire(nonRequire NonRequireDecl) {
 	}
 }
 
-func (p *printer) printRequireReplacementFunctionDeclaration(require *RequireExpr, bindingId string, fnCall string) {
+func (p *printer) printRequireReplacementFunctionDeclaration(
+	require *RequireExpr,
+	bindingId string,
+	isDestructuring bool,
+	fnCall string) {
+
 	idDeclaration := fmt.Sprintf("let %s;", bindingId)
 	fnHeader := fmt.Sprintf("function %s {", fnCall)
 	fnBodyStart := fmt.Sprintf("  return %s = %s || ", bindingId, bindingId)
@@ -114,6 +119,11 @@ func (p *printer) printRequireReplacementFunctionDeclaration(require *RequireExp
 	p.printNewline()
 	p.print(fnBodyStart)
 	p.printRequireBody(require)
+	if isDestructuring {
+		// Rewriting `const { a, b } = require()` to `let a; a = require().a`, thus adding `.a` here
+		p.print(".")
+		p.print(bindingId)
+	}
 	p.printNewline()
 	p.print(fnClose)
 	p.printNewline()
@@ -132,7 +142,7 @@ func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 			for _, b := range require.bindings {
 				id := b.identifierName
 				fnCall := functionCallForId(id)
-				p.printRequireReplacementFunctionDeclaration(require.getRequireExpr(), id, fnCall)
+				p.printRequireReplacementFunctionDeclaration(require.getRequireExpr(), id, b.isDestructuring, fnCall)
 				p.renamer.Replace(b.identifier, fnCall)
 			}
 		} else {

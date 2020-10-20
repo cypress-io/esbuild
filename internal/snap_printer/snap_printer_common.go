@@ -11,8 +11,8 @@ type RequireExpr struct {
 }
 
 type RequireBinding struct {
-	identifier     js_ast.Ref
-	identifierName string
+	identifier      js_ast.Ref
+	identifierName  string
 	isDestructuring bool
 }
 
@@ -90,15 +90,32 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (*Requir
 	return &RequireExpr{}, false
 }
 
+func (p *printer) extractBinding(b js_ast.B, isDestructuring bool) RequireBinding {
+	switch b := b.(type) {
+	case *js_ast.BIdentifier:
+		return RequireBinding{
+			identifier:      b.Ref,
+			identifierName:  p.nameForSymbol(b.Ref),
+			isDestructuring: isDestructuring,
+		}
+	default:
+		panic("Expected a BIdentifier")
+	}
+}
+
 func (p *printer) extractBindings(binding js_ast.Binding) ([]RequireBinding, bool) {
 	switch b := binding.Data.(type) {
 	case *js_ast.BIdentifier:
-		binding := RequireBinding{
-			identifier:      b.Ref,
-			identifierName:  p.nameForSymbol(b.Ref),
-			isDestructuring: false,
+		// const a = ...
+		binding := p.extractBinding(b, false)
+		return []RequireBinding{binding}, true
+	case *js_ast.BObject:
+		// const { a, b } = ...
+		bindings := make([]RequireBinding, len(b.Properties))
+		for i, prop := range b.Properties {
+			bindings[i] = p.extractBinding(prop.Value.Data, true)
 		}
-		return []RequireBinding{ binding }, true
+		return bindings, true
 	}
 	return []RequireBinding{}, false
 }
