@@ -34,10 +34,10 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 		}
 		// Dealing with a require we need to figure out what the result of it is
 		// assigned to
-		identifier, identifierName, ok := p.extractBinding(decl.Binding)
+		bindings, ok := p.extractBindings(decl.Binding)
 		// If it is not assigned we cannot handle it at this point
 		if ok {
-			return requireExpr.toRequireDecl(identifier, identifierName), true
+			return requireExpr.toRequireDecl(bindings), true
 		}
 	}
 
@@ -113,7 +113,7 @@ func (p *printer) printRequireReplacementFunctionDeclaration(require *RequireExp
 	p.print(fnHeader)
 	p.printNewline()
 	p.print(fnBodyStart)
-    p.printRequireBody(require)
+	p.printRequireBody(require)
 	p.printNewline()
 	p.print(fnClose)
 	p.printNewline()
@@ -129,11 +129,12 @@ func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 	for _, maybeRequire := range maybeRequires {
 		if maybeRequire.isRequire {
 			require := maybeRequire.require
-
-			id := require.identifierName
-			fnCall := functionCallForId(id)
-			p.printRequireReplacementFunctionDeclaration(require.getRequireExpr(), id, fnCall)
-			p.renamer.Replace(require.identifier, fnCall)
+			for _, b := range require.bindings {
+				id := b.identifierName
+				fnCall := functionCallForId(id)
+				p.printRequireReplacementFunctionDeclaration(require.getRequireExpr(), id, fnCall)
+				p.renamer.Replace(b.identifier, fnCall)
+			}
 		} else {
 			p.printNonRequire(maybeRequire.nonRequire)
 		}

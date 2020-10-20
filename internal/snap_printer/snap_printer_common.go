@@ -10,17 +10,19 @@ type RequireExpr struct {
 	propChain   []string
 }
 
-type RequireDecl struct {
-	RequireExpr
+type RequireBinding struct {
 	identifier     js_ast.Ref
 	identifierName string
+	isDestructuring bool
 }
 
-func (e *RequireExpr) toRequireDecl(identifier js_ast.Ref, identifierName string) RequireDecl {
-	return RequireDecl{
-		*e,
-		identifier,
-		identifierName}
+type RequireDecl struct {
+	RequireExpr
+	bindings []RequireBinding
+}
+
+func (e *RequireExpr) toRequireDecl(bindings []RequireBinding) RequireDecl {
+	return RequireDecl{*e, bindings}
 }
 
 func (d *RequireDecl) getRequireExpr() *RequireExpr {
@@ -88,12 +90,17 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (*Requir
 	return &RequireExpr{}, false
 }
 
-func (p *printer) extractBinding(binding js_ast.Binding) (js_ast.Ref, string, bool) {
+func (p *printer) extractBindings(binding js_ast.Binding) ([]RequireBinding, bool) {
 	switch b := binding.Data.(type) {
 	case *js_ast.BIdentifier:
-		return b.Ref, p.nameForSymbol(b.Ref), true
+		binding := RequireBinding{
+			identifier:      b.Ref,
+			identifierName:  p.nameForSymbol(b.Ref),
+			isDestructuring: false,
+		}
+		return []RequireBinding{ binding }, true
 	}
-	return js_ast.Ref{}, "", false
+	return []RequireBinding{}, false
 }
 
 //
