@@ -2,6 +2,7 @@ package snap_printer
 
 import "testing"
 
+// test('simple require')
 func TestElinkSimpleRequire(t *testing.T) {
 	expectPrinted(t, `
 const a = require('a')
@@ -59,7 +60,7 @@ function main() {
   return __get_a__() + b;
 }
 `,
-		func(mod string) bool { return mod == "a" || mod == "c"  })
+		func(mod string) bool { return mod == "a" || mod == "c" })
 }
 
 // TODO: line 76
@@ -287,6 +288,92 @@ function inner() {
   get_process().f = 5;
   window.g = 6;
   get_document().h = 7;
+}
+`, ReplaceAll)
+}
+
+// test('multiple assignments separated by commas referencing deferred modules')
+// TODO: need to first rewrite require calls that reference other requires
+func _TestElinkMultipleAssignmentsByCommaReferencingDeferredModules(t *testing.T) {
+	debugPrinted(t, `
+let a, b, c, d, e, f;
+a = 1, b = 2, c = 3;
+d = require("d"), e = d.e, f = e.f;
+`, ReplaceAll)
+}
+
+// test('require with destructuring assignment')
+func TestElinkRequireWithDestructuringAssignment(t *testing.T) {
+	expectPrinted(t, `
+const {a, b, c} = require('module').foo
+
+function main() {
+  a.bar()
+}
+`, `
+let a;
+function __get_a__() {
+  return a = a || require("module").foo.a
+}
+
+let b;
+function __get_b__() {
+  return b = b || require("module").foo.b
+}
+
+let c;
+function __get_c__() {
+  return c = c || require("module").foo.c
+}
+function main() {
+  __get_a__().bar();
+}
+`, ReplaceAll)
+}
+
+// TODO: this needs to be done at another level as it is not about rewriting JS, but
+//  about converting a JSON file to a JS file which exports the JSON as an object
+// test('JSON source') line 322
+
+// test('Object spread properties')
+// - merely assuring that we handle it, no rewrite
+func TestElinkObjectSpreadProperties(t *testing.T) {
+	expectPrinted(t, `
+let {a, b, ...rest} = {a: 1, b: 2, c: 3}
+`, `
+let {a, b, ...rest} = {a: 1, b: 2, c: 3};
+`, ReplaceAll)
+}
+
+// TODO: not strictly about require rewrites, but we need to handle these cases
+//   basically this is about rewriting require strings depending on a basedir
+// test('path resolution') line 353
+
+// TODO: this is an odd example which is related to vars depending on one that is
+//  assigned via a require. However the example resolves that function on top level
+//  which seems not entirely correct
+// test('use reference directly') line 417
+
+// test('assign to `module` or `exports`')
+func TestElinkAssignToModuleOrExports(t *testing.T) {
+	expectPrinted(t, `
+var pack = require('pack')      
+if (condition) {
+  module.exports.pack = pack
+  module.exports = pack
+  exports.pack = pack
+  exports = pack
+}
+`, `
+let pack;
+function __get_pack__() {
+  return pack = pack || require("pack")
+}
+if (condition) {
+  module.exports.pack = __get_pack__();
+  module.exports = __get_pack__();
+  exports.pack = __get_pack__();
+  exports = __get_pack__();
 }
 `, ReplaceAll)
 }
