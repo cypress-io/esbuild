@@ -46,12 +46,25 @@ func (p *printer) handleEBinary(e *js_ast.EBinary) (handled bool) {
 	}
 
 	for _, b := range identifiers {
-		id := b.identifierName
-		fnName := functionNameForId(id)
-		fnCall := functionCallForId(id)
-		p.trackTopLevelVar(fnName)
+		var fnName string
+		var fnCall string
+		var id string
+
+		// Ensure that we don't register a replacement for a ref for which we did this already
+		// Additionally the `identifierName` will not be the original one in this case so we need
+		// to obtain it and then derive the dependent ids from it.
+		if p.renamer.HasBeenReplaced(b.identifier) {
+			id = p.renamer.GetOriginalId(b.identifier)
+			fnName = functionNameForId(id)
+			fnCall = functionCallForId(id)
+		} else {
+			id = b.identifierName
+			fnName = functionNameForId(id)
+			fnCall = functionCallForId(id)
+			p.renamer.Replace(b.identifier, fnCall)
+			p.trackTopLevelVar(fnName)
+		}
 		p.printRequireReplacementFunctionAssign(require, id, b.isDestructuring, fnName)
-		p.renamer.Replace(b.identifier, fnCall)
 	}
 
 	return true

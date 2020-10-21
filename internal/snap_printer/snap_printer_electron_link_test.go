@@ -24,6 +24,47 @@ function main() {
 		func(mod string) bool { return mod == "a" })
 }
 
+// test('conditional requires')
+func TestElinkConditionalRequires(t *testing.T) {
+	expectPrinted(t, `
+let a, b;
+if (condition) {
+  a = require('a')
+  b = require('b')
+} else {
+  a = require('c')
+  b = require('d')
+}
+
+function main () {
+  return a + b
+}
+    `, `
+let __get_a__;
+let a, b;
+if (condition) {
+  
+__get_a__ = function() {
+  return a = a || require("a")
+};
+  b = require("b");
+} else {
+  
+__get_a__ = function() {
+  return a = a || require("c")
+};
+  b = require("d");
+}
+function main() {
+  return __get_a__() + b;
+}
+`,
+		func(mod string) bool { return mod == "a" || mod == "c"  })
+}
+
+// TODO: line 76
+// test('top-level variables assignments that depend on previous requires')
+
 //
 // Function Closures
 //

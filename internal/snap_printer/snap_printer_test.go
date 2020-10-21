@@ -202,7 +202,7 @@ func TestRequireLateAssignmentPropertyChain(t *testing.T) {
 	expectPrinted(t, `
 let bar
 bar = require('foo').bar
-`,`
+`, `
 let __get_bar__;
 let bar;
 
@@ -221,7 +221,7 @@ let baz;
 __get_baz__ = function() {
   return baz = baz || require("foo").bar.baz
 };
-`,ReplaceAll)
+`, ReplaceAll)
 }
 
 func TestDestructuringDeclarationReferenced(t *testing.T) {
@@ -243,7 +243,7 @@ function __get_bar__() {
 function id() {
   __get_foo__().id = "hello";
 }
-`,ReplaceAll)
+`, ReplaceAll)
 }
 
 func TestDestructuringLateAssignmentReferenced(t *testing.T) {
@@ -267,4 +267,36 @@ function id() {
   __get_foo__().id = "hello";
 }
 `, ReplaceAll)
+}
+
+func TestAssignToSameVarConditionallyAndReferenceIt(t *testing.T) {
+	expectPrinted(t, `
+let a
+if (condition) {
+  a = require('a')
+} else { 
+  a = require('b')
+}
+function foo() {
+  a.b = 'c'
+}
+`, `
+let __get_a__;
+let a;
+if (condition) {
+  
+__get_a__ = function() {
+  return a = a || require("a")
+};
+} else {
+  
+__get_a__ = function() {
+  return a = a || require("b")
+};
+}
+function foo() {
+  __get_a__().b = "c";
+}
+` , ReplaceAll)
+
 }
