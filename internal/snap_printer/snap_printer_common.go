@@ -10,6 +10,11 @@ type RequireExpr struct {
 	propChain   []string
 }
 
+type RequireReference struct {
+	referencedIdentifier js_ast.Ref
+	bindings             []RequireBinding
+}
+
 type RequireBinding struct {
 	identifier      js_ast.Ref
 	identifierName  string
@@ -35,9 +40,11 @@ type NonRequireDecl struct {
 }
 
 type MaybeRequireDecl struct {
-	isRequire  bool
-	require    RequireDecl    // use if this is a require
-	nonRequire NonRequireDecl // use if this is not a require
+	isRequire          bool
+	require            RequireDecl // use if this is a require
+	isRequireReference bool
+	requireReference   RequireReference // us if this is a reference to a required var
+	nonRequire         NonRequireDecl   // use if this is not a require
 }
 
 //

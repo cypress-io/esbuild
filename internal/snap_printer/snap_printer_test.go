@@ -297,6 +297,29 @@ __get_a__ = function() {
 function foo() {
   __get_a__().b = "c";
 }
-` , ReplaceAll)
+`, ReplaceAll)
+}
+
+func TestVarAssignedToRequiredVarAndReferenced(t *testing.T) {
+	expectPrinted(t, `
+const a = require('a')
+const b = a
+function main() {
+  b.c = 1
+}
+`, `
+let a;
+function __get_a__() {
+  return a = a || require("a")
+}
+
+let b;
+function __get_b__() {
+  return b = b || __get_a__()
+}
+function main() {
+  __get_b__().c = 1;
+}
+`, ReplaceAll)
 
 }

@@ -63,8 +63,25 @@ function main() {
 		func(mod string) bool { return mod == "a" || mod == "c" })
 }
 
-// TODO: line 76
+// TODO: need to wrap access to d and e (line 76)
 // test('top-level variables assignments that depend on previous requires')
+func _TestElinkVarAssignmentsDependingOnPreviousRequires(t *testing.T) {
+	debugPrinted(t, `
+const a = require('a')
+const b = require('b')
+const c = require('c').foo.bar
+const d = c.X | c.Y | c.Z
+var e
+e = c.e
+const f = b.f
+function main () {
+  c.qux()
+  console.log(d)
+  e()
+} `,
+		func(mod string) bool { return mod == "a" || mod == "c" })
+
+}
 
 //
 // Function Closures
@@ -293,7 +310,8 @@ function inner() {
 }
 
 // test('multiple assignments separated by commas referencing deferred modules')
-// TODO: need to first rewrite require calls that reference other requires
+// TODO: need to wrap access to `e` by taking declarations into account that just happened before
+//   and haven't been written yet
 func _TestElinkMultipleAssignmentsByCommaReferencingDeferredModules(t *testing.T) {
 	debugPrinted(t, `
 let a, b, c, d, e, f;
@@ -352,7 +370,22 @@ let {a, b, ...rest} = {a: 1, b: 2, c: 3};
 // TODO: this is an odd example which is related to vars depending on one that is
 //  assigned via a require. However the example resolves that function on top level
 //  which seems not entirely correct
+// TODO: need to wrap `x` since expression whose result it is assigned to references `pack`
 // test('use reference directly') line 417
+func _TestElinkUseReferenceDirectly(t *testing.T) {
+	debugPrinted(t, `
+var pack = require('pack')
+
+const x = console.log(pack);
+if (condition) {
+  pack
+} else {
+Object.keys(pack).forEach(function (prop) {
+  exports[prop] = pack[prop]
+})
+}
+`, ReplaceAll)
+}
 
 // test('assign to `module` or `exports`')
 func TestElinkAssignToModuleOrExports(t *testing.T) {

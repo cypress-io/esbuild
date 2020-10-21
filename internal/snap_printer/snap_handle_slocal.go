@@ -8,9 +8,18 @@ import (
 //
 // Utils
 //
-func hasRequire(maybeRequires []MaybeRequireDecl) bool {
-	for _, x := range maybeRequires {
+func hasRequire(maybeRequires *[]MaybeRequireDecl) bool {
+	for _, x := range *maybeRequires {
 		if x.isRequire {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRequireReference(maybeRequires *[]MaybeRequireDecl) bool {
+	for _, x := range *maybeRequires {
+		if x.isRequireReference {
 			return true
 		}
 	}
@@ -44,7 +53,29 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 	return RequireDecl{}, false
 }
 
-func (p *printer) extractRequireDeclarations(local *js_ast.SLocal) []MaybeRequireDecl {
+func (p *printer) extractRequireReferenceDeclaration(decl js_ast.Decl) (RequireReference, bool) {
+	// TODO: may need the refs of requires we just extracted as part of multiple declarations
+	if decl.Value != nil {
+
+		switch x := decl.Value.Data.(type) {
+		// TODO: EDot
+		case *js_ast.EIdentifier:
+			if p.renamer.HasBeenReplaced(x.Ref) {
+				bindings, ok := p.extractBindings(decl.Binding)
+				if ok {
+					return RequireReference{
+						referencedIdentifier: x.Ref,
+						bindings:             bindings,
+					}, true
+				}
+			}
+		}
+	}
+
+	return RequireReference{}, false
+}
+
+func (p *printer) extractDeclarations(local *js_ast.SLocal) []MaybeRequireDecl {
 	var maybeRequires []MaybeRequireDecl
 
 	switch local.Kind {
@@ -58,12 +89,19 @@ func (p *printer) extractRequireDeclarations(local *js_ast.SLocal) []MaybeRequir
 					maybeRequires = append(maybeRequires, MaybeRequireDecl{
 						isRequire: true,
 						require:   require})
-				} else {
-					maybeRequires = append(maybeRequires, MaybeRequireDecl{
-						isRequire:  false,
-						nonRequire: NonRequireDecl{kind: local.Kind, decl: decl},
-					})
+					continue
 				}
+				reference, isReference := p.extractRequireReferenceDeclaration(decl)
+				if isReference {
+					maybeRequires = append(maybeRequires, MaybeRequireDecl{
+						isRequireReference: true,
+						requireReference:   reference})
+					continue
+				}
+				maybeRequires = append(maybeRequires, MaybeRequireDecl{
+					isRequire:  false,
+					nonRequire: NonRequireDecl{kind: local.Kind, decl: decl},
+				})
 			}
 		}
 
@@ -129,10 +167,38 @@ func (p *printer) printRequireReplacementFunctionDeclaration(
 	p.printNewline()
 }
 
+func (p *printer) printRequireReferenceReplacementFunctionDeclaration(
+	reference *RequireReference,
+	bindingId string,
+	isDestructuring bool,
+	fnCall string) {
+
+	idDeclaration := fmt.Sprintf("let %s;", bindingId)
+	fnHeader := fmt.Sprintf("function %s {", fnCall)
+	fnBodyStart := fmt.Sprintf("  return %s = %s || ", bindingId, bindingId)
+	fnClose := "}"
+
+	p.printNewline()
+	p.print(idDeclaration)
+	p.printNewline()
+	p.print(fnHeader)
+	p.printNewline()
+	p.print(fnBodyStart)
+	if isDestructuring {
+		// Rewriting `const { a, b } = require()` to `let a; a = require().a`, thus adding `.a` here
+		p.print(".")
+		p.print(bindingId)
+	}
+	p.print(p.renamer.NameForSymbol(reference.referencedIdentifier))
+	p.printNewline()
+	p.print(fnClose)
+	p.printNewline()
+}
+
 // const|let|var x = require('x')
 func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
-	maybeRequires := p.extractRequireDeclarations(local)
-	if !hasRequire(maybeRequires) {
+	maybeRequires := p.extractDeclarations(local)
+	if !hasRequire(&maybeRequires) && !hasRequireReference(&maybeRequires) {
 		return false
 	}
 
@@ -145,9 +211,20 @@ func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 				p.printRequireReplacementFunctionDeclaration(require.getRequireExpr(), id, b.isDestructuring, fnCall)
 				p.renamer.Replace(b.identifier, fnCall)
 			}
-		} else {
-			p.printNonRequire(maybeRequire.nonRequire)
+			continue
 		}
+		if maybeRequire.isRequireReference {
+			reference := &maybeRequire.requireReference
+			for _, b := range reference.bindings {
+				id := b.identifierName
+				fnCall := functionCallForId(id)
+				p.printRequireReferenceReplacementFunctionDeclaration(reference, id, b.isDestructuring, fnCall)
+				p.renamer.Replace(b.identifier, fnCall)
+			}
+			continue
+		}
+
+		p.printNonRequire(maybeRequire.nonRequire)
 	}
 	return true
 }
