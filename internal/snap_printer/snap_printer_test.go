@@ -396,3 +396,29 @@ function main() {
 }
 `, ReplaceAll)
 }
+
+func TestLateAssignmentToRequireReference(t *testing.T) {
+	expectPrinted(t, `
+const a = require('a')
+let b
+b = a.c
+function main() {
+  return a + b 
+}
+`, `
+let __get_b__;
+
+let a;
+function __get_a__() {
+  return a = a || require("a")
+}
+let b;
+
+__get_b__ = function() {
+  return b = b || __get_a__().c
+};
+function main() {
+  return __get_a__() + __get_b__();
+}
+`, ReplaceAll)
+}
