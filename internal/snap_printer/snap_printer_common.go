@@ -11,7 +11,7 @@ type RequireExpr struct {
 }
 
 type RequireReference struct {
-	referencedIdentifier js_ast.Ref
+	assignedValue        *js_ast.Expr
 	bindings             []RequireBinding
 }
 
