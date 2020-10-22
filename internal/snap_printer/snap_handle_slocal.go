@@ -52,20 +52,6 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 
 	return RequireDecl{}, false
 }
-func (p *printer) expressionHasRequireReference(expr *js_ast.Expr) bool {
-	if expr == nil {
-		return false
-	}
-
-	switch x := expr.Data.(type) {
-	case *js_ast.EIdentifier:
-		return p.renamer.HasBeenReplaced(x.Ref)
-	case *js_ast.EDot:
-		return p.expressionHasRequireReference(&x.Target)
-	}
-
-	return false
-}
 
 func (p *printer) extractRequireReferenceDeclaration(decl js_ast.Decl) (RequireReference, bool) {
 	if !p.expressionHasRequireReference(decl.Value) {
