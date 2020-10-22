@@ -53,8 +53,6 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 	return RequireDecl{}, false
 }
 func (p *printer) expressionHasRequireReference(expr *js_ast.Expr) bool {
-	// TODO: may need the refs to replace before printing so in a multi value decl they are already
-	//   set at this point
 	if expr == nil {
 		return false
 	}
@@ -99,6 +97,11 @@ func (p *printer) extractDeclarations(local *js_ast.SLocal) []MaybeRequireDecl {
 					maybeRequires = append(maybeRequires, MaybeRequireDecl{
 						isRequire: true,
 						require:   require})
+					// Replacing identifiers immediately in order to make multi var declarations that
+					// reference each other work properly
+					for _, b := range require.bindings {
+						p.renamer.Replace(b.identifier, b.fnCallReplacement)
+					}
 					continue
 				}
 				reference, hasReference := p.extractRequireReferenceDeclaration(decl)
@@ -217,10 +220,11 @@ func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 		if maybeRequire.isRequire {
 			require := maybeRequire.require
 			for _, b := range require.bindings {
-				id := b.identifierName
-				fnCall := functionCallForId(id)
-				p.printRequireReplacementFunctionDeclaration(require.getRequireExpr(), id, b.isDestructuring, fnCall)
-				p.renamer.Replace(b.identifier, fnCall)
+				p.printRequireReplacementFunctionDeclaration(
+					require.getRequireExpr(),
+					b.identifierName,
+					b.isDestructuring,
+					b.fnCallReplacement)
 			}
 			continue
 		}

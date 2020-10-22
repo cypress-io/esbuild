@@ -374,3 +374,25 @@ function main() {
 }
 `, ReplaceAll)
 }
+
+func TestVarsInSingleDeclarationReferencingEachOtherReferenced(t *testing.T) {
+	expectPrinted(t, `
+let a = require('a'), b  = a.c
+function main() {
+  return a + b 
+}
+`, `
+let a;
+function __get_a__() {
+  return a = a || require("a")
+}
+
+let b;
+function __get_b__() {
+  return b = b || __get_a__().c
+}
+function main() {
+  return __get_a__() + __get_b__();
+}
+`, ReplaceAll)
+}

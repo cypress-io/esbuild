@@ -11,14 +11,15 @@ type RequireExpr struct {
 }
 
 type RequireReference struct {
-	assignedValue        *js_ast.Expr
-	bindings             []RequireBinding
+	assignedValue *js_ast.Expr
+	bindings      []RequireBinding
 }
 
 type RequireBinding struct {
-	identifier      js_ast.Ref
-	identifierName  string
-	isDestructuring bool
+	identifier        js_ast.Ref
+	identifierName    string
+	fnCallReplacement string
+	isDestructuring   bool
 }
 
 type RequireDecl struct {
@@ -100,10 +101,12 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (*Requir
 func (p *printer) extractBinding(b js_ast.B, isDestructuring bool) RequireBinding {
 	switch b := b.(type) {
 	case *js_ast.BIdentifier:
+		identierName := p.nameForSymbol(b.Ref)
 		return RequireBinding{
-			identifier:      b.Ref,
-			identifierName:  p.nameForSymbol(b.Ref),
-			isDestructuring: isDestructuring,
+			identifier:        b.Ref,
+			identifierName:    identierName,
+			fnCallReplacement: functionCallForId(identierName),
+			isDestructuring:   isDestructuring,
 		}
 	default:
 		panic("Expected a BIdentifier")
