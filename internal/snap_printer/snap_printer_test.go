@@ -323,3 +323,54 @@ function main() {
 `, ReplaceAll)
 
 }
+
+func TestVarAssignedToPropertyOfRequiredVarAndReferenced(t *testing.T) {
+	expectPrinted(t, `
+const a = require('a')
+const b = a.foo
+function main() {
+  b.c = 1
+}
+`, `
+let a;
+function __get_a__() {
+  return a = a || require("a")
+}
+
+let b;
+function __get_b__() {
+  return b = b || __get_a__().foo
+}
+function main() {
+  __get_b__().c = 1;
+}
+`, ReplaceAll)
+
+}
+func TestDestructuredVarsAssignedToPropertyOfRequiredVarAndReferenced(t *testing.T) {
+	expectPrinted(t, `
+const a = require('a')
+const { foo, bar } = a
+function main() {
+  return foo + bar 
+}
+`, `
+let a;
+function __get_a__() {
+  return a = a || require("a")
+}
+
+let foo;
+function __get_foo__() {
+  return foo = foo || __get_a__().foo
+}
+
+let bar;
+function __get_bar__() {
+  return bar = bar || __get_a__().bar
+}
+function main() {
+  return __get_foo__() + __get_bar__();
+}
+`, ReplaceAll)
+}

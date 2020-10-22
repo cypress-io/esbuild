@@ -52,27 +52,37 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 
 	return RequireDecl{}, false
 }
+func (p *printer) expressionHasRequireReference(expr *js_ast.Expr) bool {
+	// TODO: may need the refs to replace before printing so in a multi value decl they are already
+	//   set at this point
+	if expr == nil {
+		return false
+	}
+
+	switch x := expr.Data.(type) {
+	case *js_ast.EIdentifier:
+		return p.renamer.HasBeenReplaced(x.Ref)
+	case *js_ast.EDot:
+		return p.expressionHasRequireReference(&x.Target)
+	}
+
+	return false
+}
+
 func (p *printer) extractRequireReferenceDeclaration(decl js_ast.Decl) (RequireReference, bool) {
-	// TODO: may need the refs of requires we just extracted as part of multiple declarations
-	// var hasRequireReference bool
-	if decl.Value == nil {
+	if !p.expressionHasRequireReference(decl.Value) {
 		return RequireReference{}, false
 	}
 
-	switch x := decl.Value.Data.(type) {
-	case *js_ast.EIdentifier:
-		if p.renamer.HasBeenReplaced(x.Ref) {
-			bindings, ok := p.extractBindings(decl.Binding)
-			if ok {
-				return RequireReference{
-					assignedValue: decl.Value,
-					bindings:      bindings,
-				}, true
-			}
-		}
+	bindings, ok := p.extractBindings(decl.Binding)
+	if !ok {
+		return RequireReference{}, false
 	}
 
-	return RequireReference{}, false
+	return RequireReference{
+		assignedValue: decl.Value,
+		bindings:      bindings,
+	}, true
 }
 
 func (p *printer) extractDeclarations(local *js_ast.SLocal) []MaybeRequireDecl {
@@ -185,13 +195,12 @@ func (p *printer) printRequireReferenceReplacementFunctionDeclaration(
 	p.print(fnHeader)
 	p.printNewline()
 	p.print(fnBodyStart)
+	// TODO: not sure where I'd get a level + flags from in this case
+	p.printExpr(*reference.assignedValue, js_ast.LLowest, 0)
 	if isDestructuring {
-		// Rewriting `const { a, b } = require()` to `let a; a = require().a`, thus adding `.a` here
 		p.print(".")
 		p.print(bindingId)
 	}
-	// TODO: not sure where I'd get a level + flags from in this case
-	p.printExpr(*reference.assignedValue, js_ast.LLowest, 0)
 	p.printNewline()
 	p.print(fnClose)
 	p.printNewline()
