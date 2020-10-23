@@ -144,6 +144,7 @@ func (p *printer) extractIdentifier(b js_ast.E, isDestructuring bool) RequireBin
 		panic("Expected a EIdentifier")
 	}
 }
+
 func (p *printer) extractIdentifiers(expr js_ast.E) ([]RequireBinding, bool) {
 	switch b := expr.(type) {
 	case *js_ast.EIdentifier:
@@ -173,6 +174,16 @@ func (p *printer) expressionHasRequireReference(expr *js_ast.Expr) bool {
 		return p.expressionHasRequireReference(&x.Target)
 	}
 
+	return false
+}
+
+//
+// Predicates
+//
+func (p *printer) haveUnboundIdentifier(bindings []RequireBinding) bool {
+	for _, b := range bindings {
+		if p.renamer.IsUnbound(b.identifier) { return true }
+	}
 	return false
 }
 

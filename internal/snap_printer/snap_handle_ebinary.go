@@ -95,7 +95,9 @@ func (p *printer) handleEBinary(e *js_ast.EBinary) (handled bool) {
 	if hasRequireReference {
 		// TODO: consolidate the copy/paste
 		identifiers, ok := p.extractIdentifiers(e.Left.Data)
-		if !ok {
+		// We cannot wrap access to an unbound identifier, i.e. `exports = ...` since it needs to resolve
+		// and be assigned during module load.
+		if !ok || p.haveUnboundIdentifier(identifiers) {
 			return false
 		}
 		for _, b := range identifiers {

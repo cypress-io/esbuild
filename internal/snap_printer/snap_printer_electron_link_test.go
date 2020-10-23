@@ -387,11 +387,8 @@ Object.keys(pack).forEach(function (prop) {
 `, ReplaceAll)
 }
 
-// TODO: this broke due to exports being treated like a var with a reference to a require
-//  however we shouldn't defer assigning exports. The solution seems to be to disable deferring
-//  assigning required references to unbound identifiers.
 // test('assign to `module` or `exports`')
-func _TestElinkAssignToModuleOrExports(t *testing.T) {
+func TestElinkAssignToModuleOrExports(t *testing.T) {
 	expectPrinted(t, `
 var pack = require('pack')      
 if (condition) {
