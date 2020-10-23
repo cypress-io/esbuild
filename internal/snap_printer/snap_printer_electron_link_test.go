@@ -379,13 +379,9 @@ let {a, b, ...rest} = {a: 1, b: 2, c: 3};
 //   basically this is about rewriting require strings depending on a basedir
 // test('path resolution') line 353
 
-// TODO: this is an odd example which is related to vars depending on one that is
-//  assigned via a require. However the example resolves that function on top level
-//  which seems not entirely correct
-// TODO: need to wrap `x` since expression whose result it is assigned to references `pack`
-// test('use reference directly') line 417
-func _TestElinkUseReferenceDirectly(t *testing.T) {
-	debugPrinted(t, `
+// test('use reference directly')
+func TestElinkUseReferenceDirectly(t *testing.T) {
+	expectPrinted(t, `
 var pack = require('pack')
 
 const x = console.log(pack);
@@ -395,6 +391,23 @@ if (condition) {
 Object.keys(pack).forEach(function (prop) {
   exports[prop] = pack[prop]
 })
+}
+`, `
+let pack;
+function __get_pack__() {
+  return pack = pack || require("pack")
+}
+
+let x;
+function __get_x__() {
+  return x = x || get_console().log(__get_pack__())
+}
+if (condition) {
+  __get_pack__();
+} else {
+  Object.keys(__get_pack__()).forEach(function(prop) {
+    exports[prop] = __get_pack__()[prop];
+  });
 }
 `, ReplaceAll)
 }

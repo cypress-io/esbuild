@@ -170,6 +170,11 @@ func (p *printer) expressionHasRequireReference(expr *js_ast.Expr) bool {
 	switch x := expr.Data.(type) {
 	case *js_ast.EIdentifier:
 		return p.renamer.HasBeenReplaced(x.Ref)
+	case *js_ast.ECall:
+		for _, arg := range x.Args {
+			if p.expressionHasRequireReference(&arg) { return true }
+		}
+		return false
 	case *js_ast.EDot:
 		return p.expressionHasRequireReference(&x.Target)
 	}

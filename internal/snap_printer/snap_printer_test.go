@@ -466,3 +466,26 @@ __get_f__ = function() {
   return f = f || __get_e__().f
 }; `, ReplaceAll)
 }
+
+func TestDeclarationToCallResultWithRequireReferenceArgReferenced(t *testing.T) {
+	expectPrinted(t, `
+var pack = require('pack')
+const x = someCall(pack);
+function main() {
+  return x + 1
+}
+`, `
+let pack;
+function __get_pack__() {
+  return pack = pack || require("pack")
+}
+
+let x;
+function __get_x__() {
+  return x = x || someCall(__get_pack__())
+}
+function main() {
+  return __get_x__() + 1;
+}
+`, ReplaceAll)
+}
