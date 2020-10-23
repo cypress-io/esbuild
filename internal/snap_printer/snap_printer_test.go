@@ -422,3 +422,47 @@ function main() {
 }
 `, ReplaceAll)
 }
+
+func TestIndirectReferencesToRequireInSameDeclaration(t *testing.T) {
+	expectPrinted(t, `
+let d = require("d"), e = d.e, f = e.f;
+`, `
+let d;
+function __get_d__() {
+  return d = d || require("d")
+}
+
+let e;
+function __get_e__() {
+  return e = e || __get_d__().e
+}
+
+let f;
+function __get_f__() {
+  return f = f || __get_e__().f
+}
+`, ReplaceAll)
+}
+
+func TestIndirectReferencesToRequireLateAssign(t *testing.T) {
+	expectPrinted(t, `
+let d, e, f;
+d = require("d");
+e = d.e;
+f = e.f;
+`, `
+let __get_d__, __get_e__, __get_f__;
+let d, e, f;
+
+__get_d__ = function() {
+  return d = d || require("d")
+};
+
+__get_e__ = function() {
+  return e = e || __get_d__().e
+};
+
+__get_f__ = function() {
+  return f = f || __get_e__().f
+}; `, ReplaceAll)
+}

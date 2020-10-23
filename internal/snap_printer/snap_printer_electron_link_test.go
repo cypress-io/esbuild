@@ -310,13 +310,25 @@ function inner() {
 }
 
 // test('multiple assignments separated by commas referencing deferred modules')
-// TODO: need to wrap access to `e` by taking declarations into account that just happened before
-//   and haven't been written yet
-func _TestElinkMultipleAssignmentsByCommaReferencingDeferredModules(t *testing.T) {
-	debugPrinted(t, `
+func TestElinkMultipleAssignmentsByCommaReferencingDeferredModules(t *testing.T) {
+	expectPrinted(t, `
 let a, b, c, d, e, f;
 a = 1, b = 2, c = 3;
 d = require("d"), e = d.e, f = e.f;
+`, `
+let __get_d__, __get_e__, __get_f__;
+let a, b, c, d, e, f;
+a = 1, b = 2, c = 3;
+
+__get_d__ = function() {
+  return d = d || require("d")
+}, 
+__get_e__ = function() {
+  return e = e || __get_d__().e
+}, 
+__get_f__ = function() {
+  return f = f || __get_e__().f
+};
 `, ReplaceAll)
 }
 

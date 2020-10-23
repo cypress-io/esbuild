@@ -63,6 +63,10 @@ func (p *printer) extractRequireReferenceDeclaration(decl js_ast.Decl) (RequireR
 		return RequireReference{}, false
 	}
 
+	for _, b := range bindings {
+		p.renamer.Replace(b.identifier, b.fnCallReplacement)
+	}
+
 	return RequireReference{
 		assignedValue: decl.Value,
 		bindings:      bindings,
@@ -220,7 +224,6 @@ func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 				id := b.identifierName
 				fnCall := functionCallForId(id)
 				p.printRequireReferenceReplacementFunctionDeclaration(reference, id, b.isDestructuring, fnCall)
-				p.renamer.Replace(b.identifier, fnCall)
 			}
 			continue
 		}
