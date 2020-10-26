@@ -172,11 +172,15 @@ func (p *printer) expressionHasRequireReference(expr *js_ast.Expr) bool {
 		return p.renamer.HasBeenReplaced(x.Ref)
 	case *js_ast.ECall:
 		for _, arg := range x.Args {
-			if p.expressionHasRequireReference(&arg) { return true }
+			if p.expressionHasRequireReference(&arg) {
+				return true
+			}
 		}
 		return false
 	case *js_ast.EDot:
 		return p.expressionHasRequireReference(&x.Target)
+	case *js_ast.EBinary:
+		return p.expressionHasRequireReference(&x.Left) || p.expressionHasRequireReference(&x.Right)
 	}
 
 	return false
@@ -187,7 +191,9 @@ func (p *printer) expressionHasRequireReference(expr *js_ast.Expr) bool {
 //
 func (p *printer) haveUnboundIdentifier(bindings []RequireBinding) bool {
 	for _, b := range bindings {
-		if p.renamer.IsUnbound(b.identifier) { return true }
+		if p.renamer.IsUnbound(b.identifier) {
+			return true
+		}
 	}
 	return false
 }

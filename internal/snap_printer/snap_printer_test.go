@@ -489,3 +489,20 @@ function main() {
 }
 `, ReplaceAll)
 }
+
+func TestDeclarationWithEBinaryReferencingRequire(t *testing.T) {
+	expectPrinted(t, `
+const c = require('c').foo.bar
+const d = c.X | c.Y | c.Z
+`, `
+let c;
+function __get_c__() {
+  return c = c || require("c").foo.bar
+}
+
+let d;
+function __get_d__() {
+  return d = d || __get_c__().X | __get_c__().Y | __get_c__().Z
+}
+`, ReplaceAll)
+}

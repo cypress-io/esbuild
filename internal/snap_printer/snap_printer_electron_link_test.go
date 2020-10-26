@@ -63,10 +63,9 @@ function main() {
 		func(mod string) bool { return mod == "a" || mod == "c" })
 }
 
-// TODO: not yet wrapping access to d  (line 76)
 // test('top-level variables assignments that depend on previous requires')
-func _TestElinkVarAssignmentsDependingOnPreviousRequires(t *testing.T) {
-	debugPrinted(t, `
+func TestElinkVarAssignmentsDependingOnPreviousRequires(t *testing.T) {
+	expectPrinted(t, `
 const a = require('a')
 const b = require('b')
 const c = require('c').foo.bar
@@ -78,8 +77,35 @@ function main () {
   c.qux()
   console.log(d)
   e()
-} `,
-		func(mod string) bool { return mod == "a" || mod == "c" })
+} `, `
+let __get_e__;
+
+let a;
+function __get_a__() {
+  return a = a || require("a")
+}
+const b = require("b");
+
+let c;
+function __get_c__() {
+  return c = c || require("c").foo.bar
+}
+
+let d;
+function __get_d__() {
+  return d = d || __get_c__().X | __get_c__().Y | __get_c__().Z
+}
+var e;
+
+__get_e__ = function() {
+  return e = e || __get_c__().e
+};
+const f = b.f;
+function main() {
+  __get_c__().qux();
+  get_console().log(__get_d__());
+  __get_e__()();
+}`, func(mod string) bool { return mod == "a" || mod == "c" })
 
 }
 
