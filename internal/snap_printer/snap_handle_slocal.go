@@ -105,8 +105,8 @@ func (p *printer) extractDeclarations(local *js_ast.SLocal) []MaybeRequireDecl {
 					continue
 				}
 				maybeRequires = append(maybeRequires, MaybeRequireDecl{
-					isRequire:  false,
-					nonRequire: NonRequireDecl{kind: local.Kind, decl: decl},
+					isRequire:    false,
+					originalDecl: OriginalDecl{kind: local.Kind, decl: decl},
 				})
 			}
 		}
@@ -117,10 +117,10 @@ func (p *printer) extractDeclarations(local *js_ast.SLocal) []MaybeRequireDecl {
 //
 // Printers
 //
-func (p *printer) printNonRequire(nonRequire NonRequireDecl) {
+func (p *printer) printOriginalDecl(origDecl OriginalDecl) {
 	var keyword string
 
-	switch nonRequire.kind {
+	switch origDecl.kind {
 	case js_ast.LocalVar:
 		keyword = "var"
 	case js_ast.LocalLet:
@@ -129,7 +129,7 @@ func (p *printer) printNonRequire(nonRequire NonRequireDecl) {
 		keyword = "const"
 	}
 
-	decl := nonRequire.decl
+	decl := origDecl.decl
 
 	p.print(keyword)
 	p.printSpace()
@@ -223,12 +223,16 @@ func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
 			for _, b := range reference.bindings {
 				id := b.identifierName
 				fnCall := functionCallForId(id)
-				p.printRequireReferenceReplacementFunctionDeclaration(reference, id, b.isDestructuring, fnCall)
+				p.printRequireReferenceReplacementFunctionDeclaration(
+					reference,
+					id,
+					b.isDestructuring,
+					fnCall)
 			}
 			continue
 		}
 
-		p.printNonRequire(maybeRequire.nonRequire)
+		p.printOriginalDecl(maybeRequire.originalDecl)
 	}
 	return true
 }

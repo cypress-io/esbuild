@@ -35,7 +35,7 @@ func (d *RequireDecl) getRequireExpr() *RequireExpr {
 	return &RequireExpr{requireCall: d.requireCall, requireArg: d.requireArg, propChain: d.propChain}
 }
 
-type NonRequireDecl struct {
+type OriginalDecl struct {
 	kind js_ast.LocalKind
 	decl js_ast.Decl
 }
@@ -44,8 +44,8 @@ type MaybeRequireDecl struct {
 	isRequire          bool
 	require            RequireDecl // use if this is a require
 	isRequireReference bool
-	requireReference   RequireReference // us if this is a reference to a required var
-	nonRequire         NonRequireDecl   // use if this is not a require
+	requireReference   RequireReference // use if this is a reference to a required var
+	originalDecl       OriginalDecl     // use if this is not a require nor a reference
 }
 
 //
