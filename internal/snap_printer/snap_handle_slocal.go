@@ -201,6 +201,10 @@ func (p *printer) printRequireReferenceReplacementFunctionDeclaration(
 
 // const|let|var x = require('x')
 func (p *printer) handleSLocal(local *js_ast.SLocal) (handled bool) {
+	if p.uninvokedFunctionDepth > 0 {
+		return false
+	}
+
 	maybeRequires := p.extractDeclarations(local)
 	if !hasRequire(&maybeRequires) && !hasRequireReference(&maybeRequires) {
 		return false

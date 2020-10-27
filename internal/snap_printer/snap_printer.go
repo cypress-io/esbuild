@@ -441,9 +441,18 @@ type printer struct {
 	lineStartsWithMapping     bool
 	coverLinesWithoutMappings bool
 
+	//
 	// For snapshot
-	shouldReplaceRequire func(string) bool
-	topLevelVars         []string
+	//
+	shouldReplaceRequire   func(string) bool
+	topLevelVars           []string
+	// Keeps track of count of function entries in order to avoid rewriting code
+	// that is already wrapped in a function body.
+	// In order to not count entries into functions that are invoked immediately
+	// this count is decreased whenever such call is encountered.
+	// It does not consider cases in which a function is created and later invoked
+	// at the module level.
+	uninvokedFunctionDepth int8
 }
 
 type lineOffsetTable struct {
@@ -943,7 +952,9 @@ func (p *printer) printFnArgs(args []js_ast.Arg, hasRestArg bool, isArrow bool) 
 func (p *printer) printFn(fn js_ast.Fn) {
 	p.printFnArgs(fn.Args, fn.HasRestArg, false /* isArrow */)
 	p.printSpace()
+	p.uninvokedFunctionDepth++
 	p.printBlock(fn.Body.Stmts)
+	p.uninvokedFunctionDepth--
 }
 
 func (p *printer) printClass(class js_ast.Class) {
@@ -1314,6 +1325,10 @@ func (p *printer) printExpr(expr js_ast.Expr, level js_ast.L, flags int) {
 		}
 
 	case *js_ast.ECall:
+		callingFunction := isDirectFunctionInvocation(e)
+		if callingFunction {
+			p.uninvokedFunctionDepth--
+		}
 		wrap := level >= js_ast.LNew || (flags&forbidCall) != 0
 		targetFlags := 0
 		if e.OptionalChain == js_ast.OptionalChainNone {
@@ -1366,6 +1381,9 @@ func (p *printer) printExpr(expr js_ast.Expr, level js_ast.L, flags int) {
 		p.print(")")
 		if wrap {
 			p.print(")")
+		}
+		if callingFunction {
+			p.uninvokedFunctionDepth++
 		}
 
 	case *js_ast.ERequire:

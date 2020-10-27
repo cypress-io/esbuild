@@ -172,6 +172,7 @@ function __get_a__() {
 
 // NOTE: electron-link does not rewrite anything here, however this may be a mistake as
 // `foo` might invoke the callback synchronously when it runs and thus execute the `require`s
+// For now we conform to this (possibly incorrect) behavior
 func TestElinkTopLevelFunctionInvokingCallback(t *testing.T) {
 	expectPrinted(t, `
 foo(function () {
@@ -183,24 +184,17 @@ foo(function () {
 })
 `, `
 foo(function() {
-
-let b;
-function __get_b__() {
-  return b = b || require("b")
-}
-
-let c;
-function __get_c__() {
-  return c = c || require("c")
-}
+  const b = require("b");
+  const c = require("c");
   function main() {
-    return __get_b__() + __get_c__();
+    return b + c;
   }
 });
-`,
-		ReplaceAll,
-	)
+`, ReplaceAll)
 }
+
+// Note that a missing semicolon was added here in order to fix this invalid code as it was
+// found inside electron-link tests
 func TestElinkTopLevelClosureCompleteFiltered(t *testing.T) {
 	expectPrinted(t, `
 (function () {
@@ -211,7 +205,7 @@ func TestElinkTopLevelClosureCompleteFiltered(t *testing.T) {
   }
 }).call(this)
 
-(function () {
+;(function () {
   const a = require('a')
   const b = require('b')
   function main () {
@@ -237,7 +231,8 @@ function __get_a__() {
   function main() {
     return __get_a__() + b;
   }
-}).call(this)(function() {
+}).call(this);
+(function() {
 
 let a;
 function __get_a__() {
@@ -250,17 +245,12 @@ function __get_a__() {
 })();
 foo(function() {
   const b = require("b");
-
-let c;
-function __get_c__() {
-  return c = c || require("c")
-}
+  const c = require("c");
   function main() {
-    return b + __get_c__();
+    return b + c;
   }
 });
-`,
-		func(mod string) bool { return mod == "a" || mod == "c" })
+`, func(mod string) bool { return mod == "a" || mod == "c" })
 }
 
 // test('references to shadowed variables')

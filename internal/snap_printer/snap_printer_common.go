@@ -198,6 +198,30 @@ func (p *printer) haveUnboundIdentifier(bindings []RequireBinding) bool {
 	return false
 }
 
+func isDirectFunctionInvocation(e *js_ast.ECall) bool {
+	if e == nil || e.Target.Data == nil {
+		return false
+	}
+	switch dot := e.Target.Data.(type) {
+	// Invocations via .call and .apply
+	case *js_ast.EDot:
+		if dot.Target.Data == nil {
+			return false
+		}
+		switch dot.Target.Data.(type) {
+		case *js_ast.EFunction:
+			if dot.Name == "call" || dot.Name == "apply" {
+				return true
+			}
+		}
+	// Direct invocations, i.e. (function () {})()
+	case *js_ast.EFunction:
+		return true
+	}
+
+	return false
+}
+
 //
 // Printers
 //

@@ -506,3 +506,76 @@ function __get_d__() {
 }
 `, ReplaceAll)
 }
+
+func TestTopLevelVsNestedRequiresAndReferences(t *testing.T) {
+	expectPrinted(t, `
+function nested() {
+  const a = require('a')
+}
+const b = require('b')
+const c = b.foo
+`, `
+function nested() {
+  const a = require("a");
+}
+
+let b;
+function __get_b__() {
+  return b = b || require("b")
+}
+
+let c;
+function __get_c__() {
+  return c = c || __get_b__().foo
+}
+`, ReplaceAll)
+}
+
+func TestLateAssignedTopLevelVsNestedRequiresAndReferences(t *testing.T) {
+	expectPrinted(t, `
+function nested() {
+  let a
+  a = require('a')
+}
+let b, c
+b = require('b')
+c = b.foo
+`, `
+let __get_b__, __get_c__;
+function nested() {
+  let a;
+  a = require("a");
+}
+let b, c;
+
+__get_b__ = function() {
+  return b = b || require("b")
+};
+
+__get_c__ = function() {
+  return c = c || __get_b__().foo
+};
+`, ReplaceAll)
+}
+
+func TestRequireReferencesInsideBlock(t *testing.T) {
+	expectPrinted(t, `
+{
+  const a = require('a')
+  const c = a.bar
+}
+`, `
+{
+
+let a;
+function __get_a__() {
+  return a = a || require("a")
+}
+
+let c;
+function __get_c__() {
+  return c = c || __get_a__().bar
+}
+}
+`, ReplaceAll)
+}
