@@ -8,6 +8,7 @@ import (
 	"github.com/evanw/esbuild/internal/logger"
 	"github.com/evanw/esbuild/internal/snap_renamer"
 	"github.com/evanw/esbuild/internal/test"
+	"io/ioutil"
 	"strings"
 	"testing"
 )
@@ -129,4 +130,15 @@ func debugPrinted(t *testing.T, contents string, shouldReplaceRequire func(strin
 	)
 }
 
+func debugFile(t *testing.T, path string, shouldReplaceRequire func(string) bool) {
+	t.Helper()
+	contents, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	debugPrinted(
+		t,
+		string(contents),
+		shouldReplaceRequire)
+}
 func ReplaceAll(string) bool { return true }
