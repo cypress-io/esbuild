@@ -55,6 +55,12 @@ func (bs *bitSet) bitwiseOrWith(other bitSet) {
 	}
 }
 
+type PrintAST func(
+	tree js_ast.AST,
+	symbols js_ast.SymbolMap,
+	r renamer.Renamer,
+	options js_printer.PrintOptions) js_printer.PrintResult
+
 type linkerContext struct {
 	options     *config.Options
 	log         logger.Log
@@ -82,6 +88,10 @@ type linkerContext struct {
 
 	// We may need to refer to the CommonJS "module" symbol for exports
 	unboundModuleRef js_ast.Ref
+
+	// Prints the AST. This allows configuring the printer, i.e. to use the
+	// snap_printer instead of the default js_printer.
+	print PrintAST
 }
 
 // This contains linker-specific metadata corresponding to a "file" struct
@@ -318,6 +328,7 @@ func newLinkerContext(
 		symbols:        js_ast.NewSymbolMap(len(files)),
 		reachableFiles: findReachableFiles(files, entryPoints),
 		lcaAbsPath:     lcaAbsPath,
+		print:          js_printer.Print,
 	}
 
 	// Clone various things since we may mutate them later
@@ -447,6 +458,10 @@ func newLinkerContext(
 	}
 
 	return c
+}
+
+func (c *linkerContext) SetPrinter(print PrintAST) {
+	c.print = print
 }
 
 type indexAndPath struct {
@@ -1354,7 +1369,7 @@ func (c *linkerContext) generateCodeForLazyExport(sourceIndex uint32) {
 		// Link the export into the graph for tree shaking
 		partIndex := c.addPartToFile(sourceIndex, js_ast.Part{
 			Stmts:                []js_ast.Stmt{stmt},
-			SymbolUses:           map[js_ast.Ref]js_ast.SymbolUse{repr.ast.ModuleRef: js_ast.SymbolUse{CountEstimate: 1}},
+			SymbolUses:           map[js_ast.Ref]js_ast.SymbolUse{repr.ast.ModuleRef: {CountEstimate: 1}},
 			DeclaredSymbols:      []js_ast.DeclaredSymbol{{Ref: ref, IsTopLevel: true}},
 			CanBeRemovedIfUnused: true,
 		}, partMeta{})
@@ -3136,7 +3151,7 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 	tree := repr.ast
 	tree.Parts = []js_ast.Part{{Stmts: stmts}}
 	*result = compileResultJS{
-		PrintResult: js_printer.Print(tree, c.symbols, r, printOptions),
+		PrintResult: c.print(tree, c.symbols, r, printOptions),
 		sourceIndex: partRange.sourceIndex,
 	}
 	if len(stmts) > 0 {
@@ -3154,7 +3169,7 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 	if len(stmtList.entryPointTail) > 0 {
 		tree := repr.ast
 		tree.Parts = []js_ast.Part{{Stmts: stmtList.entryPointTail}}
-		entryPointTail := js_printer.Print(tree, c.symbols, r, printOptions)
+		entryPointTail := c.print(tree, c.symbols, r, printOptions)
 		result.entryPointTail = &entryPointTail
 	}
 
@@ -3346,11 +3361,11 @@ func (repr *chunkReprJS) generate(c *linkerContext, chunk *chunkInfo) func([]ast
 				RemoveWhitespace: c.options.RemoveWhitespace,
 				MangleSyntax:     c.options.MangleSyntax,
 			}
-			crossChunkPrefix = js_printer.Print(js_ast.AST{
+			crossChunkPrefix = c.print(js_ast.AST{
 				ImportRecords: crossChunkImportRecords,
 				Parts:         []js_ast.Part{{Stmts: repr.crossChunkPrefixStmts}},
 			}, c.symbols, r, printOptions).JS
-			crossChunkSuffix = js_printer.Print(js_ast.AST{
+			crossChunkSuffix = c.print(js_ast.AST{
 				Parts: []js_ast.Part{{Stmts: repr.crossChunkSuffixStmts}},
 			}, c.symbols, r, printOptions).JS
 		}

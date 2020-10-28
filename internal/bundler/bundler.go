@@ -880,7 +880,7 @@ type OutputFile struct {
 	IsExecutable bool
 }
 
-func (b *Bundle) Compile(log logger.Log, options config.Options) []OutputFile {
+func (b *Bundle) Compile(log logger.Log, options config.Options, printAST PrintAST) []OutputFile {
 	if options.ExtensionToLoader == nil {
 		options.ExtensionToLoader = DefaultExtensionToLoaderMap()
 	}
@@ -902,6 +902,7 @@ func (b *Bundle) Compile(log logger.Log, options config.Options) []OutputFile {
 	if options.CodeSplitting {
 		// If code splitting is enabled, link all entry points together
 		c := newLinkerContext(&options, log, b.fs, b.res, b.files, b.entryPoints, lcaAbsPath)
+		c.SetPrinter(printAST)
 		resultGroups = []linkGroup{{
 			outputFiles:    c.link(),
 			reachableFiles: c.reachableFiles,
@@ -914,6 +915,7 @@ func (b *Bundle) Compile(log logger.Log, options config.Options) []OutputFile {
 			waitGroup.Add(1)
 			go func(i int, entryPoint uint32) {
 				c := newLinkerContext(&options, log, b.fs, b.res, b.files, []uint32{entryPoint}, lcaAbsPath)
+				c.SetPrinter(printAST)
 				resultGroups[i] = linkGroup{
 					outputFiles:    c.link(),
 					reachableFiles: c.reachableFiles,

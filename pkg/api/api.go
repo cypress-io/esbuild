@@ -229,6 +229,8 @@ type BuildOptions struct {
 	EntryPoints []string
 	Stdin       *StdinOptions
 	Write       bool
+
+	Snapshot bool
 }
 
 type StdinOptions struct {
@@ -283,6 +285,8 @@ type TransformOptions struct {
 
 	Sourcefile string
 	Loader     Loader
+
+	Snapshot bool
 }
 
 type TransformResult struct {

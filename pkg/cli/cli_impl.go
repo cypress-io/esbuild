@@ -117,6 +117,13 @@ func parseOptionsImpl(osArgs []string, buildOpts *api.BuildOptions, transformOpt
 			}
 			hasBareSourceMapFlag = false
 
+		case arg == "--snapshot":
+			if buildOpts != nil {
+				buildOpts.Snapshot = true
+			} else {
+				transformOpts.Snapshot = true
+			}
+
 		case strings.HasPrefix(arg, "--sourcefile="):
 			if buildOpts != nil {
 				if buildOpts.Stdin == nil {

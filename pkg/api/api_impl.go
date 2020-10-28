@@ -548,7 +548,7 @@ func buildImpl(buildOpts BuildOptions) BuildResult {
 		// Stop now if there were errors
 		if !log.HasErrors() {
 			// Compile the bundle
-			results := bundle.Compile(log, options)
+			results := bundle.Compile(log, options, createPrintAST(buildOpts.Snapshot))
 
 			// Stop now if there were errors
 			if !log.HasErrors() {
@@ -705,7 +705,7 @@ func transformImpl(input string, transformOpts TransformOptions) TransformResult
 		// Stop now if there were errors
 		if !log.HasErrors() {
 			// Compile the bundle
-			results = bundle.Compile(log, options)
+			results = bundle.Compile(log, options, createPrintAST(transformOpts.Snapshot))
 		}
 	}
 
