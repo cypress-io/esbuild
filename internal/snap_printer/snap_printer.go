@@ -3,7 +3,6 @@ package snap_printer
 import (
 	"bytes"
 	"fmt"
-	"github.com/evanw/esbuild/internal/renamer"
 	"math"
 	"strconv"
 	"strings"
@@ -11,10 +10,11 @@ import (
 
 	"github.com/evanw/esbuild/internal/ast"
 	"github.com/evanw/esbuild/internal/compat"
-	"github.com/evanw/esbuild/internal/config"
 	"github.com/evanw/esbuild/internal/js_ast"
 	"github.com/evanw/esbuild/internal/js_lexer"
+	"github.com/evanw/esbuild/internal/js_printer"
 	"github.com/evanw/esbuild/internal/logger"
+	"github.com/evanw/esbuild/internal/renamer"
 	"github.com/evanw/esbuild/internal/snap_renamer"
 	"github.com/evanw/esbuild/internal/sourcemap"
 )
@@ -22,123 +22,15 @@ import (
 var positiveInfinity = math.Inf(1)
 var negativeInfinity = math.Inf(-1)
 
-// Coordinates in source maps are stored using relative offsets for size
-// reasons. When joining together chunks of a source map that were emitted
-// in parallel for different parts of a file, we need to fix up the first
-// segment of each chunk to be relative to the end of the previous chunk.
-type SourceMapState struct {
-	// This isn't stored in the source map. It's only used by the bundler to join
-	// source map chunks together correctly.
-	GeneratedLine int
+type SourceMapState = js_printer.SourceMapState
+type PrintOptions = js_printer.PrintOptions
+type QuotedSource = js_printer.QuotedSource
+type SourceMapChunk = js_printer.SourceMapChunk
+type Joiner = js_printer.Joiner
+type PrintResult = js_printer.PrintResult
 
-	// These are stored in the source map in VLQ format.
-	GeneratedColumn int
-	SourceIndex     int
-	OriginalLine    int
-	OriginalColumn  int
-}
-
-// Source map chunks are computed in parallel for speed. Each chunk is relative
-// to the zero state instead of being relative to the end state of the previous
-// chunk, since it's impossible to know the end state of the previous chunk in
-// a parallel computation.
-//
-// After all chunks are computed, they are joined together in a second pass.
-// This rewrites the first mapping in each chunk to be relative to the end
-// state of the previous chunk.
-func AppendSourceMapChunk(j *Joiner, prevEndState SourceMapState, startState SourceMapState, sourceMap []byte) {
-	// Handle line breaks in between this mapping and the previous one
-	if startState.GeneratedLine != 0 {
-		j.AddBytes(bytes.Repeat([]byte{';'}, startState.GeneratedLine))
-		prevEndState.GeneratedColumn = 0
-	}
-
-	// Skip past any leading semicolons, which indicate line breaks
-	semicolons := 0
-	for sourceMap[semicolons] == ';' {
-		semicolons++
-	}
-	if semicolons > 0 {
-		j.AddBytes(sourceMap[:semicolons])
-		sourceMap = sourceMap[semicolons:]
-		prevEndState.GeneratedColumn = 0
-		startState.GeneratedColumn = 0
-	}
-
-	// Strip off the first mapping from the buffer. The first mapping should be
-	// for the start of the original file (the printer always generates one for
-	// the start of the file).
-	generatedColumn, i := sourcemap.DecodeVLQ(sourceMap, 0)
-	sourceIndex, i := sourcemap.DecodeVLQ(sourceMap, i)
-	originalLine, i := sourcemap.DecodeVLQ(sourceMap, i)
-	originalColumn, i := sourcemap.DecodeVLQ(sourceMap, i)
-	sourceMap = sourceMap[i:]
-
-	// Rewrite the first mapping to be relative to the end state of the previous
-	// chunk. We now know what the end state is because we're in the second pass
-	// where all chunks have already been generated.
-	startState.SourceIndex += sourceIndex
-	startState.GeneratedColumn += generatedColumn
-	startState.OriginalLine += originalLine
-	startState.OriginalColumn += originalColumn
-	j.AddBytes(appendMapping(nil, j.lastByte, prevEndState, startState))
-
-	// Then append everything after that without modification.
-	j.AddBytes(sourceMap)
-}
-
-// Rewrite the source map to remove everything before "offset" and have the
-// generated position start from (0, 0) at that point. This is used when
-// erasing the variable declaration keyword from the start of a file.
-func RemovePrefixFromSourceMapChunk(buffer []byte, offset int) []byte {
-	// Avoid an out-of-bounds array access if the offset is 0. This doesn't
-	// happen normally but can happen if a source is remapped from another
-	// source map that is missing mappings. This is the case with some file
-	// in the "ant-design" project.
-	if offset == 0 {
-		return buffer
-	}
-
-	state := SourceMapState{}
-	i := 0
-
-	// Accumulate mappings before the break point
-	for i < offset {
-		if buffer[i] == ';' {
-			i++
-			continue
-		}
-
-		var si, ol, oc int
-		_, i = sourcemap.DecodeVLQ(buffer, i)
-		si, i = sourcemap.DecodeVLQ(buffer, i)
-		ol, i = sourcemap.DecodeVLQ(buffer, i)
-		oc, i = sourcemap.DecodeVLQ(buffer, i)
-		state.SourceIndex += si
-		state.OriginalLine += ol
-		state.OriginalColumn += oc
-
-		if i < len(buffer) && buffer[i] == ',' {
-			i++
-		}
-	}
-
-	// Rewrite the mapping at the break point
-	var si, ol, oc int
-	_, i = sourcemap.DecodeVLQ(buffer, i)
-	si, i = sourcemap.DecodeVLQ(buffer, i)
-	ol, i = sourcemap.DecodeVLQ(buffer, i)
-	oc, i = sourcemap.DecodeVLQ(buffer, i)
-	state.SourceIndex += si
-	state.OriginalLine += ol
-	state.OriginalColumn += oc
-
-	// Splice it in front of the buffer assuming it's big enough
-	first := appendMapping(nil, 0, SourceMapState{}, state)
-	buffer = buffer[i-len(first):]
-	copy(buffer, first)
-	return buffer
-}
+var QuoteForJSON = js_printer.QuoteForJSON
+var QuoteIdentifier = js_printer.QuoteIdentifier
 
 func appendMapping(buffer []byte, lastByte byte, prevState SourceMapState, currentState SourceMapState) []byte {
 	// Put commas in between mappings
@@ -165,205 +57,12 @@ func appendMapping(buffer []byte, lastByte byte, prevState SourceMapState, curre
 	return buffer
 }
 
-// This provides an efficient way to join lots of big string and byte slices
-// together. It avoids the cost of repeatedly reallocating as the buffer grows
-// by measuring exactly how big the buffer should be and then allocating once.
-// This is a measurable speedup.
-type Joiner struct {
-	lastByte byte
-	strings  []joinerString
-	bytes    []joinerBytes
-	length   uint32
-}
-
-type joinerString struct {
-	data   string
-	offset uint32
-}
-
-type joinerBytes struct {
-	data   []byte
-	offset uint32
-}
-
-func (j *Joiner) AddString(data string) {
-	if len(data) > 0 {
-		j.lastByte = data[len(data)-1]
-	}
-	j.strings = append(j.strings, joinerString{data, j.length})
-	j.length += uint32(len(data))
-}
-
-func (j *Joiner) AddBytes(data []byte) {
-	if len(data) > 0 {
-		j.lastByte = data[len(data)-1]
-	}
-	j.bytes = append(j.bytes, joinerBytes{data, j.length})
-	j.length += uint32(len(data))
-}
-
-func (j *Joiner) LastByte() byte {
-	return j.lastByte
-}
-
-func (j *Joiner) Length() uint32 {
-	return j.length
-}
-
-func (j *Joiner) Done() []byte {
-	buffer := make([]byte, j.length)
-	for _, item := range j.strings {
-		copy(buffer[item.offset:], item.data)
-	}
-	for _, item := range j.bytes {
-		copy(buffer[item.offset:], item.data)
-	}
-	return buffer
-}
-
 const hexChars = "0123456789ABCDEF"
-const firstASCII = 0x20
 const lastASCII = 0x7E
 const firstHighSurrogate = 0xD800
 const lastHighSurrogate = 0xDBFF
 const firstLowSurrogate = 0xDC00
 const lastLowSurrogate = 0xDFFF
-
-func canPrintWithoutEscape(c rune, asciiOnly bool) bool {
-	if c <= lastASCII {
-		return c >= firstASCII && c != '\\' && c != '"'
-	} else {
-		return !asciiOnly && c != '\uFEFF' && (c < firstHighSurrogate || c > lastLowSurrogate)
-	}
-}
-
-func QuoteForJSON(text string, asciiOnly bool) []byte {
-	// Estimate the required length
-	lenEstimate := 2
-	for _, c := range text {
-		if canPrintWithoutEscape(c, asciiOnly) {
-			lenEstimate += utf8.RuneLen(c)
-		} else {
-			switch c {
-			case '\b', '\f', '\n', '\r', '\t', '\\', '"':
-				lenEstimate += 2
-			default:
-				if c <= 0xFFFF {
-					lenEstimate += 6
-				} else {
-					lenEstimate += 12
-				}
-			}
-		}
-	}
-
-	// Preallocate the array
-	bytes := make([]byte, 0, lenEstimate)
-	i := 0
-	n := len(text)
-	bytes = append(bytes, '"')
-
-	for i < n {
-		c, width := js_lexer.DecodeWTF8Rune(text[i:])
-
-		// Fast path: a run of characters that don't need escaping
-		if canPrintWithoutEscape(c, asciiOnly) {
-			start := i
-			i += width
-			for i < n {
-				c, width = js_lexer.DecodeWTF8Rune(text[i:])
-				if !canPrintWithoutEscape(c, asciiOnly) {
-					break
-				}
-				i += width
-			}
-			bytes = append(bytes, text[start:i]...)
-			continue
-		}
-
-		switch c {
-		case '\b':
-			bytes = append(bytes, "\\b"...)
-			i++
-
-		case '\f':
-			bytes = append(bytes, "\\f"...)
-			i++
-
-		case '\n':
-			bytes = append(bytes, "\\n"...)
-			i++
-
-		case '\r':
-			bytes = append(bytes, "\\r"...)
-			i++
-
-		case '\t':
-			bytes = append(bytes, "\\t"...)
-			i++
-
-		case '\\':
-			bytes = append(bytes, "\\\\"...)
-			i++
-
-		case '"':
-			bytes = append(bytes, "\\\""...)
-			i++
-
-		default:
-			i += width
-			if c <= 0xFFFF {
-				bytes = append(
-					bytes,
-					'\\', 'u', hexChars[c>>12], hexChars[(c>>8)&15], hexChars[(c>>4)&15], hexChars[c&15],
-				)
-			} else {
-				c -= 0x10000
-				lo := firstHighSurrogate + ((c >> 10) & 0x3FF)
-				hi := firstLowSurrogate + (c & 0x3FF)
-				bytes = append(
-					bytes,
-					'\\', 'u', hexChars[lo>>12], hexChars[(lo>>8)&15], hexChars[(lo>>4)&15], hexChars[lo&15],
-					'\\', 'u', hexChars[hi>>12], hexChars[(hi>>8)&15], hexChars[(hi>>4)&15], hexChars[hi&15],
-				)
-			}
-		}
-	}
-
-	return append(bytes, '"')
-}
-
-func QuoteIdentifier(js []byte, name string, unsupportedFeatures compat.JSFeature) []byte {
-	isASCII := false
-	asciiStart := 0
-	for i, c := range name {
-		if c >= firstASCII && c <= lastASCII {
-			// Fast path: a run of ASCII characters
-			if !isASCII {
-				isASCII = true
-				asciiStart = i
-			}
-		} else {
-			// Slow path: escape non-ACSII characters
-			if isASCII {
-				js = append(js, name[asciiStart:i]...)
-				isASCII = false
-			}
-			if c <= 0xFFFF {
-				js = append(js, '\\', 'u', hexChars[c>>12], hexChars[(c>>8)&15], hexChars[(c>>4)&15], hexChars[c&15])
-			} else if !unsupportedFeatures.Has(compat.UnicodeEscapes) {
-				js = append(js, fmt.Sprintf("\\u{%X}", c)...)
-			} else {
-				panic("Internal error: Cannot encode identifier: Unicode escapes are unsupported")
-			}
-		}
-	}
-	if isASCII {
-		// Print one final run of ASCII characters
-		js = append(js, name[asciiStart:]...)
-	}
-	return js
-}
 
 func (p *printer) printQuotedUTF16(text []uint16, quote rune) {
 	temp := make([]byte, utf8.UTFMax)
@@ -1339,11 +1038,6 @@ func (p *printer) bestQuoteCharForString(data []uint16, allowBacktick bool) stri
 		c = "`"
 	}
 	return c
-}
-
-type requireCallArgs struct {
-	isES6Import       bool
-	mustReturnPromise bool
 }
 
 func (p *printer) printRequireOrImportExpr(importRecordIndex uint32, leadingInteriorComments []js_ast.Comment) {
@@ -3075,60 +2769,6 @@ func (p *printer) shouldIgnoreSourceMap() bool {
 	return true
 }
 
-type PrintOptions struct {
-	OutputFormat        config.Format
-	RemoveWhitespace    bool
-	MangleSyntax        bool
-	ASCIIOnly           bool
-	ExtractComments     bool
-	Indent              int
-	ToModuleRef         js_ast.Ref
-	WrapperRefForSource func(uint32) js_ast.Ref
-	UnsupportedFeatures compat.JSFeature
-
-	// This contains the contents of the input file to map back to in the source
-	// map. If it's nil that means we're not generating source maps.
-	SourceForSourceMap *logger.Source
-
-	// This will be present if the input file had a source map. In that case we
-	// want to map all the way back to the original input file(s).
-	InputSourceMap *sourcemap.SourceMap
-}
-
-type QuotedSource struct {
-	// These are quoted ahead of time instead of during source map generation so
-	// the quoting happens in parallel instead of in serial
-	QuotedPath     []byte
-	QuotedContents []byte
-}
-
-type SourceMapChunk struct {
-	Buffer []byte
-
-	// There may be more than one source for this chunk if the file being printed
-	// has an associated source map. In that case the "source index" values in
-	// the buffer are 0-based indices into this array. The source index of the
-	// first mapping will be adjusted when the chunks are joined together. Since
-	// the source indices are encoded using a delta from the previous source
-	// index, none of the other source indices need to be modified while joining.
-	QuotedSources []QuotedSource
-
-	// This end state will be used to rewrite the start of the following source
-	// map chunk so that the delta-encoded VLQ numbers are preserved.
-	EndState SourceMapState
-
-	// There probably isn't a source mapping at the end of the file (nor should
-	// there be) but if we're appending another source map chunk after this one,
-	// we'll need to know how many characters were in the last line we generated.
-	FinalGeneratedColumn int
-
-	// Like "FinalGeneratedColumn" but for the generated column of the last
-	// semicolon for a "SLocal" statement.
-	FinalLocalSemi int
-
-	ShouldIgnore bool
-}
-
 func createPrinter(
 	symbols js_ast.SymbolMap,
 	r snap_renamer.SnapRenamer,
@@ -3175,21 +2815,6 @@ func createPrinter(
 	}
 
 	return p
-}
-
-type PrintResult struct {
-	JS []byte
-
-	// This source map chunk just contains the VLQ-encoded offsets for the "JS"
-	// field above. It's not a full source map. The bundler will be joining many
-	// source map chunks together to form the final source map.
-	SourceMapChunk SourceMapChunk
-
-	ExtractedComments map[string]bool
-
-	// These are used when stripping off the leading variable declaration
-	FirstDeclByteOffset      uint32
-	FirstDeclSourceMapOffset uint32
 }
 
 func Print(
