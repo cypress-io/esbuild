@@ -3,6 +3,7 @@ package snap_printer
 import (
 	"bytes"
 	"fmt"
+	"github.com/evanw/esbuild/internal/renamer"
 	"math"
 	"strconv"
 	"strings"
@@ -3194,11 +3195,17 @@ type PrintResult struct {
 func Print(
 	tree js_ast.AST,
 	symbols js_ast.SymbolMap,
-	r snap_renamer.SnapRenamer,
+	r renamer.Renamer,
 	options PrintOptions,
 	shouldReplaceRequire func(string) bool,
 ) PrintResult {
-	p := createPrinter(symbols, r, tree.ImportRecords, options, tree.ApproximateLineCount, shouldReplaceRequire)
+	var p *printer
+	switch snapRenamer := r.(type) {
+	case *snap_renamer.SnapRenamer:
+		p = createPrinter(symbols, *snapRenamer, tree.ImportRecords, options, tree.ApproximateLineCount, shouldReplaceRequire)
+	default:
+		panic("Need to pass a snap_renamer")
+	}
 
 	p.rewriteGlobals()
 
