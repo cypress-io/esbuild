@@ -1,4 +1,4 @@
-package js_printer
+package snap_printer
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	"github.com/evanw/esbuild/internal/js_ast"
 	"github.com/evanw/esbuild/internal/js_lexer"
 	"github.com/evanw/esbuild/internal/logger"
-	"github.com/evanw/esbuild/internal/renamer"
+	"github.com/evanw/esbuild/internal/snap_renamer"
 	"github.com/evanw/esbuild/internal/sourcemap"
 )
 
@@ -508,7 +508,7 @@ func (p *printer) printQuotedUTF16(text []uint16, quote rune) {
 
 type printer struct {
 	symbols            js_ast.SymbolMap
-	renamer            renamer.Renamer
+	renamer            snap_renamer.SnapRenamer
 	importRecords      []ast.ImportRecord
 	options            PrintOptions
 	extractedComments  map[string]bool
@@ -548,6 +548,19 @@ type printer struct {
 	// to avoid replicating the previous mapping if we don't need to.
 	lineStartsWithMapping     bool
 	coverLinesWithoutMappings bool
+
+	//
+	// For snapshot
+	//
+	shouldReplaceRequire func(string) bool
+	topLevelVars         []string
+	// Keeps track of count of function entries in order to avoid rewriting code
+	// that is already wrapped in a function body.
+	// In order to not count entries into functions that are invoked immediately
+	// this count is decreased whenever such call is encountered.
+	// It does not consider cases in which a function is created and later invoked
+	// at the module level.
+	uninvokedFunctionDepth int8
 }
 
 type lineOffsetTable struct {
@@ -1109,7 +1122,9 @@ func (p *printer) printFnArgs(args []js_ast.Arg, hasRestArg bool, isArrow bool) 
 func (p *printer) printFn(fn js_ast.Fn) {
 	p.printFnArgs(fn.Args, fn.HasRestArg, false /* isArrow */)
 	p.printSpace()
+	p.uninvokedFunctionDepth++
 	p.printBlock(fn.Body.Stmts)
+	p.uninvokedFunctionDepth--
 }
 
 func (p *printer) printClass(class js_ast.Class) {
@@ -1480,6 +1495,10 @@ func (p *printer) printExpr(expr js_ast.Expr, level js_ast.L, flags int) {
 		}
 
 	case *js_ast.ECall:
+		callingFunction := isDirectFunctionInvocation(e)
+		if callingFunction {
+			p.uninvokedFunctionDepth--
+		}
 		wrap := level >= js_ast.LNew || (flags&forbidCall) != 0
 		targetFlags := 0
 		if e.OptionalChain == js_ast.OptionalChainNone {
@@ -1532,6 +1551,9 @@ func (p *printer) printExpr(expr js_ast.Expr, level js_ast.L, flags int) {
 		p.print(")")
 		if wrap {
 			p.print(")")
+		}
+		if callingFunction {
+			p.uninvokedFunctionDepth++
 		}
 
 	case *js_ast.ERequire:
@@ -2044,6 +2066,9 @@ func (p *printer) printExpr(expr js_ast.Expr, level js_ast.L, flags int) {
 		}
 
 	case *js_ast.EBinary:
+		if handled := p.handleEBinary(e); handled {
+			return
+		}
 		entry := js_ast.OpTable[e.Op]
 		wrap := level >= entry.Level || (e.Op == js_ast.BinOpIn && (flags&forbidIn) != 0)
 
@@ -2696,6 +2721,9 @@ func (p *printer) printStmt(stmt js_ast.Stmt) {
 		p.printSemicolonAfterStatement()
 
 	case *js_ast.SLocal:
+		if handled := p.handleSLocal(s); handled {
+			return
+		}
 		switch s.Kind {
 		case js_ast.LocalConst:
 			p.printDeclStmt(s.IsExport, "const", s.Decls)
@@ -3102,11 +3130,13 @@ type SourceMapChunk struct {
 
 func createPrinter(
 	symbols js_ast.SymbolMap,
-	r renamer.Renamer,
+	r snap_renamer.SnapRenamer,
 	importRecords []ast.ImportRecord,
 	options PrintOptions,
 	approximateLineCount int32,
+	shouldReplaceRequire func(string) bool,
 ) *printer {
+	topLevelDecls := make([]string, 0)
 	p := &printer{
 		symbols:            symbols,
 		renamer:            r,
@@ -3132,6 +3162,9 @@ func createPrinter(
 		// lines gives very strange and unhelpful results with source maps from
 		// other tools.
 		coverLinesWithoutMappings: options.InputSourceMap == nil,
+
+		shouldReplaceRequire: shouldReplaceRequire,
+		topLevelVars:         topLevelDecls,
 	}
 
 	// If we're writing out a source map, prepare a table of line start indices
@@ -3158,8 +3191,16 @@ type PrintResult struct {
 	FirstDeclSourceMapOffset uint32
 }
 
-func Print(tree js_ast.AST, symbols js_ast.SymbolMap, r renamer.Renamer, options PrintOptions) PrintResult {
-	p := createPrinter(symbols, r, tree.ImportRecords, options, tree.ApproximateLineCount)
+func Print(
+	tree js_ast.AST,
+	symbols js_ast.SymbolMap,
+	r snap_renamer.SnapRenamer,
+	options PrintOptions,
+	shouldReplaceRequire func(string) bool,
+) PrintResult {
+	p := createPrinter(symbols, r, tree.ImportRecords, options, tree.ApproximateLineCount, shouldReplaceRequire)
+
+	p.rewriteGlobals()
 
 	for _, part := range tree.Parts {
 		for _, stmt := range part.Stmts {
@@ -3169,6 +3210,7 @@ func Print(tree js_ast.AST, symbols js_ast.SymbolMap, r renamer.Renamer, options
 	}
 
 	p.updateGeneratedLineAndColumn()
+	p.prependTopLevelDecls()
 
 	return PrintResult{
 		JS:                p.js,
@@ -3183,26 +3225,6 @@ func Print(tree js_ast.AST, symbols js_ast.SymbolMap, r renamer.Renamer, options
 		},
 		FirstDeclByteOffset:      p.firstDeclByteOffset,
 		FirstDeclSourceMapOffset: p.firstDeclSourceMapOffset,
-	}
-}
-
-func PrintExpr(expr js_ast.Expr, symbols js_ast.SymbolMap, r renamer.Renamer, options PrintOptions) PrintResult {
-	p := createPrinter(symbols, r, nil, options, 0)
-
-	p.printExpr(expr, js_ast.LLowest, 0)
-
-	p.updateGeneratedLineAndColumn()
-
-	return PrintResult{
-		JS:                p.js,
-		ExtractedComments: p.extractedComments,
-		SourceMapChunk: SourceMapChunk{
-			Buffer:               p.sourceMap,
-			QuotedSources:        quotedSources(nil, &options),
-			EndState:             p.prevState,
-			FinalGeneratedColumn: p.generatedColumn,
-			ShouldIgnore:         p.shouldIgnoreSourceMap(),
-		},
 	}
 }
 
