@@ -6,10 +6,28 @@ import (
 	"github.com/evanw/esbuild/pkg/api"
 )
 
-func TestRun(t *testing.T) {
+var entryPoints =  []string{"../../examples/express-app/snap.js"}
+// var entryPoints =  []string{"input.js"}
+
+func TestRunJS(t *testing.T) {
 	result := api.Build(api.BuildOptions{
-		EntryPoints: []string{"input.js"},
-		Outfile:     "output.js",
+		EntryPoints: entryPoints,
+		Outfile:     "output_js.js",
+		Platform:    api.PlatformNode,
+		Bundle:      true,
+		Write:       true,
+		LogLevel:    api.LogLevelInfo,
+	})
+
+	if len(result.Errors) > 0 {
+		t.FailNow()
+	}
+}
+
+func TestRunSnap(t *testing.T) {
+	result := api.Build(api.BuildOptions{
+		EntryPoints: entryPoints,
+		Outfile:     "output_snap.js",
 		Platform:    api.PlatformNode,
 		Bundle:      true,
 		Write:       true,
