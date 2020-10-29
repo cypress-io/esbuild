@@ -1,6 +1,7 @@
 package snap_printer
 
 import (
+	"github.com/evanw/esbuild/internal/ast"
 	"github.com/evanw/esbuild/internal/js_ast"
 )
 
@@ -57,6 +58,19 @@ type MaybeRequireDecl struct {
 // result was bound to.
 func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (*RequireExpr, bool) {
 	switch x := expr.Data.(type) {
+	case *js_ast.ERequire:
+		// @see snap_printer.go `printRequireOrImportExpr`
+		record := &p.importRecords[x.ImportRecordIndex]
+		// Make sure this is a require we want to handle, for now `import` statements are not
+		if record.SourceIndex != nil || record.Kind == ast.ImportDynamic  {
+			break
+		}
+		return &RequireExpr{
+			requireCall: expr,
+			requireArg:  record.Path.Text,
+			propChain:   make([]string, depth),
+		}, true
+
 	case *js_ast.ECall:
 		target := x.Target
 		args := x.Args
