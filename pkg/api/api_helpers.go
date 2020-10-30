@@ -17,9 +17,9 @@ func createPrintAST(snapshot bool) bundler.PrintAST {
 		return func(
 			tree js_ast.AST,
 			symbols js_ast.SymbolMap,
-			_ renamer.Renamer,
+			jsRenamer renamer.Renamer,
 			options js_printer.PrintOptions) js_printer.PrintResult {
-			r := snap_renamer.NewSnapRenamer(symbols)
+			r := snap_renamer.WrapRenamer(&jsRenamer, symbols)
 			return snap_printer.Print(tree, symbols, &r, options, replaceAll)
 		}
 	} else {

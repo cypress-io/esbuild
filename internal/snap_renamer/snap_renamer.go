@@ -2,6 +2,7 @@ package snap_renamer
 
 import (
 	"github.com/evanw/esbuild/internal/js_ast"
+	"github.com/evanw/esbuild/internal/renamer"
 )
 
 type replacement struct {
@@ -12,12 +13,25 @@ type replacement struct {
 type SnapRenamer struct {
 	symbols             js_ast.SymbolMap
 	deferredIdentifiers map[js_ast.Ref]replacement
+	wrappedRenamer      *renamer.Renamer
 }
 
 func NewSnapRenamer(symbols js_ast.SymbolMap) SnapRenamer {
 	return SnapRenamer{
 		symbols:             symbols,
 		deferredIdentifiers: make(map[js_ast.Ref]replacement),
+	}
+}
+
+// The linking process prepares a NumberRenamer which includes `names` and a symbol map
+// mostly related to the code wrapping each module.
+// In order to correctly determine symbol names we store a reference here and forward
+// symbol resolves to it @see `NameForSymbol`.
+func WrapRenamer(r *renamer.Renamer, symbols js_ast.SymbolMap) SnapRenamer {
+	return SnapRenamer{
+		symbols:             symbols,
+		deferredIdentifiers: make(map[js_ast.Ref]replacement),
+		wrappedRenamer:      r,
 	}
 }
 
@@ -30,6 +44,9 @@ func (r *SnapRenamer) NameForSymbol(ref js_ast.Ref) string {
 	deferredIdentifier, ok := r.deferredIdentifiers[ref]
 	if ok {
 		return deferredIdentifier.replaced
+	}
+	if r.wrappedRenamer != nil {
+		return (*r.wrappedRenamer).NameForSymbol(ref)
 	}
 	name := r.symbols.Get(ref).OriginalName
 	return name
