@@ -51,18 +51,22 @@ func (p *printer) prependTopLevelDecls() {
 //
 // Rewrite globals
 //
+
+// globals derived from electron-link blueprint declarations
+// See: https://github.com/atom/electron-link/blob/abeb97d8633c06ac6a762ac427b272adebd32c4f/src/blueprint.js#L6
+// Also related to: internal/resolver/resolver.go :1246 (BuiltInNodeModules)
+var snapGlobals = []string{"process", "document", "global", "window", "console"}
+
 func (p *printer) rewriteGlobals() {
-	// global console ref is always located inside "file" 0 if it is present
-	outer := &p.symbols.Outer[0]
-	for i, ref := range *outer {
-		// Globals aren't declared anywhere and thus are unbound
-		if ref.Kind != js_ast.SymbolUnbound {
-			continue
-		} else {
-			for _, global := range snap_globals {
-				if ref.OriginalName == global {
-					(*outer)[i].OriginalName = functionCallForGlobal(global)
-					continue
+	for outerIdx, outer := range p.symbols.Outer {
+		for innerIdx, ref := range outer {
+			// Globals aren't declared anywhere and thus are unbound
+			if ref.Kind == js_ast.SymbolUnbound {
+				for _, global := range snapGlobals {
+					if ref.OriginalName == global {
+						p.symbols.Outer[outerIdx][innerIdx].OriginalName = functionCallForGlobal(global)
+						continue
+					}
 				}
 			}
 		}
