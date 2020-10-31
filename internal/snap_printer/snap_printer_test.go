@@ -579,3 +579,35 @@ function __get_c__() {
 }
 `, ReplaceAll)
 }
+
+func TestRequireWithCallchain(t *testing.T) {
+	expectPrinted(t, `
+ var debug = require('debug')('express:view')
+`, `
+let debug;
+function __get_debug__() {
+  return debug = debug || require("debug")("express:view")
+}
+`, ReplaceAll)
+
+	expectPrinted(t, `
+ var chain = require('chainer')('hello')('world')(foo())(1)
+`, `
+let chain;
+function __get_chain__() {
+  return chain = chain || require("chainer")("hello")("world")(foo())(1)
+}
+`, ReplaceAll)
+}
+
+func TestRequireWithCallchainAndPropChain(t *testing.T) {
+	expectPrinted(t, `
+ var chain = require('chainer')('hello').foo.bar
+`, `
+let chain;
+function __get_chain__() {
+  return chain = chain || require("chainer")("hello").foo.bar
+}
+`, ReplaceAll)
+}
+

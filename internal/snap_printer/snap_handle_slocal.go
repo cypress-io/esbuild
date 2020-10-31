@@ -37,7 +37,7 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 	if decl.Value != nil {
 		// First verify that this is a statement that assigns the result of a
 		// `require` call.
-		requireExpr, isRequire := p.extractRequireExpression(*decl.Value, 0)
+		requireExpr, isRequire := p.extractRequireExpression(*decl.Value, 0, 0)
 		if !isRequire {
 			return RequireDecl{}, false
 		}

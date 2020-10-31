@@ -92,7 +92,7 @@ func (p *printer) handleEBinary(e *js_ast.EBinary) (handled bool) {
 		return false
 	}
 
-	require, isRequire := p.extractRequireExpression(e.Right, 0)
+	require, isRequire := p.extractRequireExpression(e.Right, 0, 0)
 	if isRequire {
 		identifiers, ok := p.extractIdentifiers(e.Left.Data)
 		if !ok {

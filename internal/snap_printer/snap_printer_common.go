@@ -9,6 +9,7 @@ type RequireExpr struct {
 	requireCall js_ast.Expr
 	requireArg  string
 	propChain   []string
+	callChain   [][]js_ast.Expr
 }
 
 type RequireReference struct {
@@ -33,7 +34,12 @@ func (e *RequireExpr) toRequireDecl(bindings []RequireBinding) RequireDecl {
 }
 
 func (d *RequireDecl) getRequireExpr() *RequireExpr {
-	return &RequireExpr{requireCall: d.requireCall, requireArg: d.requireArg, propChain: d.propChain}
+	return &RequireExpr{
+		requireCall: d.requireCall,
+		requireArg:  d.requireArg,
+		propChain:   d.propChain,
+		callChain:   d.callChain,
+	}
 }
 
 type OriginalDecl struct {
@@ -56,57 +62,67 @@ type MaybeRequireDecl struct {
 // Extracts the require call expression including information about the argument to the require call.
 // NOTE: that this does not include any information about the identifier to which the require call
 // result was bound to.
-func (p *printer) extractRequireExpression(expr js_ast.Expr, depth int) (*RequireExpr, bool) {
-	switch x := expr.Data.(type) {
+func (p *printer) extractRequireExpression(expr js_ast.Expr, propDepth int, callDepth int) (*RequireExpr, bool) {
+	switch data := expr.Data.(type) {
 	case *js_ast.ERequire:
 		// @see snap_printer.go `printRequireOrImportExpr`
-		record := &p.importRecords[x.ImportRecordIndex]
+		record := &p.importRecords[data.ImportRecordIndex]
 		// Make sure this is a require we want to handle, for now `import` statements are not
-		if record.SourceIndex != nil || record.Kind == ast.ImportDynamic  {
+		if record.SourceIndex != nil || record.Kind == ast.ImportDynamic {
 			break
 		}
 		return &RequireExpr{
 			requireCall: expr,
 			requireArg:  record.Path.Text,
-			propChain:   make([]string, depth),
+			propChain:   make([]string, propDepth),
+			callChain:   make([][]js_ast.Expr, callDepth),
 		}, true
 
 	case *js_ast.ECall:
-		target := x.Target
-		args := x.Args
-		// require('foo') has exactly one arg
-		if len(args) == 1 {
-			switch x := target.Data.(type) {
-			case *js_ast.EIdentifier:
-				name := p.nameForSymbol(x.Ref)
-				if name == "require" {
-					arg := args[0]
-					var argString string
-					switch x := arg.Data.(type) {
-					case *js_ast.EString:
-						argString = stringifyEString(x)
-					}
-					if p.shouldReplaceRequire(argString) {
-						return &RequireExpr{
-							requireCall: expr,
-							requireArg:  argString,
-							propChain:   make([]string, depth),
-						}, true
-					}
+		target := data.Target
+		args := data.Args
+		switch targetData := target.Data.(type) {
+		case *js_ast.EIdentifier:
+			name := p.nameForSymbol(targetData.Ref)
+			// require('foo') has exactly one arg
+			if name == "require" && len(args) == 1 {
+				arg := args[0]
+				var argString string
+				switch x := arg.Data.(type) {
+				case *js_ast.EString:
+					argString = stringifyEString(x)
+				}
+				if p.shouldReplaceRequire(argString) {
+					return &RequireExpr{
+						requireCall: expr,
+						requireArg:  argString,
+						propChain:   make([]string, propDepth),
+						callChain:   make([][]js_ast.Expr, callDepth),
+					}, true
 				}
 			}
+		// require('debug')('express:view')
+		case *js_ast.ECall:
+			require, ok := p.extractRequireExpression(target, propDepth, callDepth+1)
+			if !ok {
+				return require, false
+			}
+			// add calls in the order they need to be written
+			idx := len(require.callChain) - 1 - callDepth
+			require.callChain[idx] = data.Args
+			return require, true
 		}
 
 	case *js_ast.EDot:
-		// const b = require('x').a.b
+		// const b = require('data').a.b
 		// we see .b then .a then the require (ECall) when we recursively call this function
-		require, ok := p.extractRequireExpression(x.Target, depth+1)
+		require, ok := p.extractRequireExpression(data.Target, propDepth+1, callDepth)
 		if !ok {
 			return require, false
 		}
 		// add properties in the order they need to be written
-		idx := len(require.propChain) - 1 - depth
-		require.propChain[idx] = x.Name
+		idx := len(require.propChain) - 1 - propDepth
+		require.propChain[idx] = data.Name
 		return require, true
 	}
 	return &RequireExpr{}, false
@@ -241,6 +257,13 @@ func isDirectFunctionInvocation(e *js_ast.ECall) bool {
 //
 func (p *printer) printRequireBody(require *RequireExpr) {
 	p.printExpr(require.requireCall, js_ast.LLowest, 0)
+	for _, args := range require.callChain {
+		p.print("(")
+		for _, arg := range args {
+			p.printExpr(arg, js_ast.LLowest, 0)
+		}
+		p.print(")")
+	}
 	for _, prop := range require.propChain {
 		p.print(".")
 		p.print(prop)
