@@ -68,7 +68,7 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, propDepth int, call
 		// @see snap_printer.go `printRequireOrImportExpr`
 		record := &p.importRecords[data.ImportRecordIndex]
 		// Make sure this is a require we want to handle, for now `import` statements are not
-		if record.SourceIndex != nil || record.Kind == ast.ImportDynamic {
+		if record.Kind == ast.ImportDynamic {
 			break
 		}
 		return &RequireExpr{
