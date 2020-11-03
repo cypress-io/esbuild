@@ -611,3 +611,9 @@ function __get_chain__() {
 `, ReplaceAll)
 }
 
+func TestDebug(t *testing.T) {
+	debugPrinted(t, `
+var deprecate = require('depd')("http-errors");
+`, ReplaceAll)
+}
+

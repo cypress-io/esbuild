@@ -85,9 +85,10 @@ func printBuildResult(result buildResult) {
 }
 
 func verifyBuildResult(t *testing.T, result buildResult, expected buildResult) {
-	for k, v := range result.files {
-		exp := trimFirstLine(expected.files[k])
-		assertEqual(t, k, v, exp)
+	for k, v := range expected.files {
+		act := result.files[k]
+		exp := trimFirstLine(v)
+		assertEqual(t, k, act, exp)
 	}
 }
 

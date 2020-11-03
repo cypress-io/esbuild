@@ -102,7 +102,7 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, propDepth int, call
 				}
 			}
 		// require('debug')('express:view')
-		case *js_ast.ECall:
+		case *js_ast.ERequire, *js_ast.ECall:
 			require, ok := p.extractRequireExpression(target, propDepth, callDepth+1)
 			if !ok {
 				return require, false
