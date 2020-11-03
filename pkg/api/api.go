@@ -77,6 +77,8 @@
 //
 package api
 
+import "github.com/evanw/esbuild/internal/fs"
+
 type SourceMap uint8
 
 const (
@@ -231,6 +233,7 @@ type BuildOptions struct {
 	Write       bool
 
 	Snapshot bool
+	FS       fs.FS
 }
 
 type StdinOptions struct {

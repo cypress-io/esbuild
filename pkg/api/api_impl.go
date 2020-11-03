@@ -424,7 +424,12 @@ func buildImpl(buildOpts BuildOptions) BuildResult {
 	})
 
 	// Convert and validate the buildOpts
-	realFS := fs.RealFS()
+	var realFS fs.FS
+	if buildOpts.FS != nil {
+		realFS = buildOpts.FS
+	}  else {
+		realFS = fs.RealFS()
+	}
 	jsFeatures, cssFeatures := validateFeatures(log, buildOpts.Target, buildOpts.Engines)
 	options := config.Options{
 		UnsupportedJSFeatures:  jsFeatures,
