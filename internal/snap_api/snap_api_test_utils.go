@@ -78,7 +78,7 @@ func extractBuildResult(bundle string) buildResult {
 func printBuildResult(result buildResult) {
 	fmt.Println("buildResult{\n    files: map[string]string{")
 	for k, v := range result.files {
-		fmt.Printf("        `%s`: `\n%s`\n", k, v)
+		fmt.Printf("        `%s`: `\n%s`,\n", k, v)
 	}
 	fmt.Println("    }")
 	fmt.Println("}")
