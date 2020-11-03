@@ -67,7 +67,7 @@ func TestRunSnap(t *testing.T) {
 
 		// the import will be preserved and will be evaluated at run time instead
 		// https://esbuild.github.io/api/#external
-		External: []string{"depd", "inherits"},
+		External: []string{"inherits"},
 
 		//
 		// Combination of the below two might be a better way to replace globals
@@ -167,14 +167,6 @@ func TestRunSnap(t *testing.T) {
 
 // ../../examples/express-app/node_modules/depd/index.js
 
-## Require Rewrites
-
-	var callSiteToString = require('./lib/compat').callSiteToString
-	->
-	var callSiteToString = require_compat().callSiteToString;
-	->
-	Not deferred
-
 ## Process Reference
 
 	var basePath = process.cwd()
@@ -182,21 +174,6 @@ func TestRunSnap(t *testing.T) {
 Even though `process` reference is rewritten, it is resolved at module level.
 However `basePath` is used inside functions, thus a solution would be to rewrite
 references to results obtained from globals like we do with requires.
-
-
-# statuses: http status package
-
-// ../../examples/express-app/node_modules/statuses/index.js
-
-## Require Rewrites
-
-var codes = require('./codes.json')
-->
-var codes = require_codes();
-
-Another case where esbuild already rewrites the require statement that is relative to
-the package and as a result snap_printer doesn't detect it.
-
 
 # inherits: wrapper
 
@@ -206,15 +183,8 @@ Resolves `util.inherits` at module level to know what to export.
 
 ## Require Rewrites
 
-Making 'inherits' an external via `External:    []string{"depd", "inherits"},` had the
-following effects:
-
-1. `inherits` is not included in the bundle
-2. the `require` statement isn't rewritten which in turn results in our snap_printer
-   rewriting it correctly.
-
-NOTE: `var deprecate = require("depd")("http-errors");` is not rewritten by our
-      snap_printer correctly.
+Making 'inherits' an external via `External:    []string{"inherits"},`
+caused it to not be included in the bundle which possibly is the only solution here.
 
 # http-errors
 
@@ -223,16 +193,9 @@ NOTE: `var deprecate = require("depd")("http-errors");` is not rewritten by our
 ## Require Rewrites
 
 	var deprecate = require('depd')('http-errors')
-	var setPrototypeOf = require('setprototypeof')
-	var statuses = require('statuses')
-	var inherits = require('inherits')
-	var toIdentifier = require('toidentifier')
 ->
 	var deprecate = require_depd()("http-errors");
-	var setPrototypeOf = require_setprototypeof();
-	var statuses = require_statuses();
-	var inherits = require_inherits();
-	var toIdentifier = require_toidentifier();
 ->
-   snap_printer doesn't recognize them as `require` calls
+   snap_printer doesn't recognize it as `require` call and doesn't rewrite it.
+   others that don't include an immediate call are rewritten correctly
 */
