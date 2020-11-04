@@ -72,3 +72,53 @@ module.exports = function() {
 		},
 	)
 }
+func TestCallingResultOfRequiringModule(t *testing.T) {
+	snapApiSuite.expectBuild(t, built{
+		files: map[string]string{
+			"/entry.js": `
+var deprecate = require('./depd')('http-errors')
+module.exports = function () { deprecate() }
+`,
+			"/depd.js": "module.exports = function (s) {}",
+		},
+		entryPoints: []string{"/entry.js"},
+	},
+
+		buildResult{
+			files: map[string]string{
+				`/entry.js`: `
+let deprecate;
+function __get_deprecate__() {
+  return deprecate = deprecate || require_depd()("http-errors")
+}
+module.exports = function() {
+  __get_deprecate__()();
+};`,
+			},
+		},
+	)
+}
+
+func TestNotWrappingExports(t *testing.T) {
+	snapApiSuite.expectBuild(t,
+		built{
+			files: map[string]string{
+				"/entry.js":
+				`require('./body-parser')`,
+				"/body-parser.js":
+				`exports = module.exports = foo()`,
+			},
+			entryPoints: []string{"/entry.js"},
+		},
+		buildResult{
+			files: map[string]string{
+				"/body-parser.js": `
+var require_body_parser = __commonJS((exports, module2) => {
+  exports = module2.exports = foo();
+});`,
+				"/entry.js": `
+require_body_parser();`,
+			},
+		},
+	)
+}

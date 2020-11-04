@@ -108,12 +108,12 @@ func (p *printer) handleEBinary(e *js_ast.EBinary) (handled bool) {
 	}
 
 	expr := &e.Right
-	hasRequireReference := p.expressionHasRequireOrGlobalReference(expr)
-	if hasRequireReference {
+	hasRequireOrGlobalReference := p.expressionHasRequireOrGlobalReference(expr)
+	if hasRequireOrGlobalReference {
 		identifiers, ok := p.extractIdentifiers(e.Left.Data)
 		// We cannot wrap access to an unbound identifier, i.e. `exports = ...` since it needs to resolve
 		// and be assigned during module load.
-		if !ok || p.haveUnboundIdentifier(identifiers) {
+		if !ok || p.haveUnwrappableIdentifier(identifiers) {
 			return false
 		}
 		p.printBindings(identifiers, func(

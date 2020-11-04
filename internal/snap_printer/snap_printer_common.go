@@ -226,9 +226,9 @@ func (p *printer) expressionHasRequireOrGlobalReference(expr *js_ast.Expr) bool 
 //
 // Predicates
 //
-func (p *printer) haveUnboundIdentifier(bindings []RequireBinding) bool {
+func (p *printer) haveUnwrappableIdentifier(bindings []RequireBinding) bool {
 	for _, b := range bindings {
-		if p.renamer.IsUnbound(b.identifier) {
+		if p.renamer.IsUnwrappable(b.identifier) {
 			return true
 		}
 	}

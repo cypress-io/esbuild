@@ -93,6 +93,18 @@ func (r *SnapRenamer) IsUnbound(ref js_ast.Ref) bool {
 	}
 }
 
+func (r *SnapRenamer) IsUnwrappable(ref js_ast.Ref) bool {
+	ref = r.resolveRefFromSymbols(ref)
+	symbol := r.symbols.Get(ref)
+	if symbol.Kind == js_ast.SymbolUnbound {
+		return true
+	}
+	if symbol.Kind == js_ast.SymbolHoisted && symbol.OriginalName == "exports" {
+		return true
+	}
+	return false
+}
+
 func (r *SnapRenamer) IsUnboundNonRequire(ref js_ast.Ref) bool {
 	ref = r.resolveRefFromSymbols(ref)
 	symbol := r.symbols.Get(ref)
