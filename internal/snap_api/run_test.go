@@ -173,4 +173,32 @@ Resolves `util.inherits` at module level to know what to export.
 
 Making 'inherits' an external via `External:    []string{"inherits"},`
 caused it to not be included in the bundle which possibly is the only solution here.
+
+# body-parser
+
+// ../../examples/express-app/node_modules/body-parser/index.js
+
+## exports Rewrites
+
+	exports = module.exports = deprecate.function(bodyParser,
+		'bodyParser: use individual json/urlencoded middlewares')
+->
+	__get_exports__ = function() {
+	  return exports = exports || module2.exports = __get_deprecate__().function(bodyParser, "bodyParser: use individual json/urlencoded middlewares")
+	};
+
+The return coupled with assignment is invalid `return exports = exports`
+This kind of exports assignment is always happening at module level since it needs
+to be assigned after module loaded.
+
+Two solutions:
+
+a: exclude those modules
+b: don't rewrite exports assignments
+c: fix the rewrite (for `exports` only) to look similar to
+
+
+__get_exports__ = function() {
+  return exports = module2.exports = __get_deprecate__().function(bodyParser, "bodyParser: use individual json/urlencoded middlewares")
+};
 */
