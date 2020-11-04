@@ -611,9 +611,26 @@ function __get_chain__() {
 `, ReplaceAll)
 }
 
-func TestDebug(t *testing.T) {
-	debugPrinted(t, `
-var deprecate = require('depd')("http-errors");
+func TestDeclarationReferencingGlobal(t *testing.T) {
+	expectPrinted(t, `
+const { relative } = require('path')
+var basePath = process.cwd()
+function relToBase(s) {
+  return relative(basePath, relative)
+}
+`, `
+let relative;
+function __get_relative__() {
+  return relative = relative || require("path").relative
+}
+
+let basePath;
+function __get_basePath__() {
+  return basePath = basePath || get_process().cwd()
+}
+function relToBase(s) {
+  return __get_relative__()(__get_basePath__(), __get_relative__());
+}
 `, ReplaceAll)
 }
 

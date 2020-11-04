@@ -163,18 +163,6 @@ func TestRunSnap(t *testing.T) {
 
 --- Encountered Issues ---
 
-# depd: deprecate package
-
-// ../../examples/express-app/node_modules/depd/index.js
-
-## Process Reference
-
-	var basePath = process.cwd()
-
-Even though `process` reference is rewritten, it is resolved at module level.
-However `basePath` is used inside functions, thus a solution would be to rewrite
-references to results obtained from globals like we do with requires.
-
 # inherits: wrapper
 
 // ../../examples/express-app/node_modules/inherits/inherits.js
@@ -185,17 +173,4 @@ Resolves `util.inherits` at module level to know what to export.
 
 Making 'inherits' an external via `External:    []string{"inherits"},`
 caused it to not be included in the bundle which possibly is the only solution here.
-
-# http-errors
-
-// ../../examples/express-app/node_modules/http-errors/index.js
-
-## Require Rewrites
-
-	var deprecate = require('depd')('http-errors')
-->
-	var deprecate = require_depd()("http-errors");
-->
-   snap_printer doesn't recognize it as `require` call and doesn't rewrite it.
-   others that don't include an immediate call are rewritten correctly
 */

@@ -92,3 +92,13 @@ func (r *SnapRenamer) IsUnbound(ref js_ast.Ref) bool {
 		return false
 	}
 }
+
+func (r *SnapRenamer) IsUnboundNonRequire(ref js_ast.Ref) bool {
+	ref = r.resolveRefFromSymbols(ref)
+	symbol := r.symbols.Get(ref)
+	if symbol.Kind == js_ast.SymbolUnbound {
+		return symbol.OriginalName != "require"
+	} else {
+		return false
+	}
+}

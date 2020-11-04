@@ -64,7 +64,8 @@ func (p *printer) rewriteGlobals() {
 			if ref.Kind == js_ast.SymbolUnbound {
 				for _, global := range snapGlobals {
 					if ref.OriginalName == global {
-						p.symbols.Outer[outerIdx][innerIdx].OriginalName = functionCallForGlobal(global)
+						name := functionCallForGlobal(global)
+						p.symbols.Outer[outerIdx][innerIdx].OriginalName = name
 						continue
 					}
 				}

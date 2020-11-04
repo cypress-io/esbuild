@@ -54,7 +54,7 @@ func (p *printer) extractRequireDeclaration(decl js_ast.Decl) (RequireDecl, bool
 }
 
 func (p *printer) extractRequireReferenceDeclaration(decl js_ast.Decl) (RequireReference, bool) {
-	if !p.expressionHasRequireReference(decl.Value) {
+	if !p.expressionHasRequireOrGlobalReference(decl.Value) {
 		return RequireReference{}, false
 	}
 

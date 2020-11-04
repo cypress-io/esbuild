@@ -192,25 +192,32 @@ func (p *printer) extractIdentifiers(expr js_ast.E) ([]RequireBinding, bool) {
 	return []RequireBinding{}, false
 }
 
-func (p *printer) expressionHasRequireReference(expr *js_ast.Expr) bool {
+func (p *printer) expressionHasRequireOrGlobalReference(expr *js_ast.Expr) bool {
 	if expr == nil {
 		return false
 	}
 
 	switch x := expr.Data.(type) {
 	case *js_ast.EIdentifier:
-		return p.renamer.HasBeenReplaced(x.Ref)
+		if p.renamer.HasBeenReplaced(x.Ref) {
+			return true
+		}
+		// Globals except 'require'
+		if p.renamer.IsUnboundNonRequire(x.Ref) {
+			return true
+		}
+		return false
 	case *js_ast.ECall:
 		for _, arg := range x.Args {
-			if p.expressionHasRequireReference(&arg) {
+			if p.expressionHasRequireOrGlobalReference(&arg) {
 				return true
 			}
 		}
-		return false
+		return p.expressionHasRequireOrGlobalReference(&x.Target)
 	case *js_ast.EDot:
-		return p.expressionHasRequireReference(&x.Target)
+		return p.expressionHasRequireOrGlobalReference(&x.Target)
 	case *js_ast.EBinary:
-		return p.expressionHasRequireReference(&x.Left) || p.expressionHasRequireReference(&x.Right)
+		return p.expressionHasRequireOrGlobalReference(&x.Left) || p.expressionHasRequireOrGlobalReference(&x.Right)
 	}
 
 	return false
