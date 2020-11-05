@@ -427,7 +427,7 @@ func buildImpl(buildOpts BuildOptions) BuildResult {
 	var realFS fs.FS
 	if buildOpts.FS != nil {
 		realFS = buildOpts.FS
-	}  else {
+	} else {
 		realFS = fs.RealFS()
 	}
 	jsFeatures, cssFeatures := validateFeatures(log, buildOpts.Target, buildOpts.Engines)
@@ -540,6 +540,11 @@ func buildImpl(buildOpts BuildOptions) BuildResult {
 	// Code splitting is experimental and currently only enabled for ES6 modules
 	if options.CodeSplitting && options.OutputFormat != config.FormatESModule {
 		log.AddError(nil, logger.Loc{}, "Splitting currently only works with the \"esm\" format")
+	}
+
+	// Default to not generating snapshot output if it is not set at all
+	if buildOpts.Snapshot == nil {
+		buildOpts.Snapshot = &SnapshotOptions{CreateSnapshot: false}
 	}
 
 	var outputFiles []OutputFile
@@ -658,6 +663,11 @@ func transformImpl(input string, transformOpts TransformOptions) TransformResult
 				preserveUnusedImportsTS = true
 			}
 		}
+	}
+
+	// Default to not generating snapshot output if it is not set at all
+	if transformOpts.Snapshot == nil {
+		transformOpts.Snapshot = &SnapshotOptions{CreateSnapshot: false}
 	}
 
 	// Convert and validate the transformOpts

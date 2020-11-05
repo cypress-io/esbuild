@@ -25,6 +25,9 @@ func TestRunJS(t *testing.T) {
 	}
 }
 
+func replaceNone(string) bool { return false }
+func replaceAll(string) bool  { return true }
+
 func TestRunSnap(t *testing.T) {
 	result := api.Build(api.BuildOptions{
 		// https://esbuild.github.io/api/#log-level
@@ -90,7 +93,10 @@ func TestRunSnap(t *testing.T) {
 		// https://esbuild.github.io/api/#write
 		Write: true,
 
-		Snapshot: true,
+		Snapshot: &api.SnapshotOptions{
+			CreateSnapshot: true,
+			ShouldReplaceRequire: replaceNone,
+		},
 
 		//
 		// Unused

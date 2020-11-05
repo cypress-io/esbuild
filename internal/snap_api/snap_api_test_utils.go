@@ -12,8 +12,9 @@ import (
 )
 
 type built struct {
-	files       map[string]string
-	entryPoints []string
+	files                map[string]string
+	entryPoints          []string
+	shouldReplaceRequire func(string) bool
 }
 
 type buildResult struct {
@@ -106,8 +107,11 @@ func (s *suite) build(args built) buildResult {
 		Outfile:     "/out.js",
 		EntryPoints: args.entryPoints,
 		Platform:    api.PlatformNode,
-		Snapshot:    true,
-		FS:          fs,
+		Snapshot: &api.SnapshotOptions{
+			CreateSnapshot:       true,
+			ShouldReplaceRequire: args.shouldReplaceRequire,
+		},
+		FS: fs,
 	})
 	return extractBuildResult(string(result.OutputFiles[0].Contents))
 }

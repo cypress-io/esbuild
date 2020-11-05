@@ -232,7 +232,7 @@ type BuildOptions struct {
 	Stdin       *StdinOptions
 	Write       bool
 
-	Snapshot bool
+	Snapshot *SnapshotOptions
 	FS       fs.FS
 }
 
@@ -241,6 +241,11 @@ type StdinOptions struct {
 	ResolveDir string
 	Sourcefile string
 	Loader     Loader
+}
+
+type SnapshotOptions struct {
+	CreateSnapshot       bool
+	ShouldReplaceRequire func(string) bool
 }
 
 type BuildResult struct {
@@ -289,7 +294,7 @@ type TransformOptions struct {
 	Sourcefile string
 	Loader     Loader
 
-	Snapshot bool
+	Snapshot *SnapshotOptions
 }
 
 type TransformResult struct {

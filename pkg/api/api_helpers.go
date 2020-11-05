@@ -9,18 +9,22 @@ import (
 	"github.com/evanw/esbuild/internal/snap_renamer"
 )
 
-func replaceAll(string) bool { return true }
+func replaceNone(string) bool { return false }
 
-func createPrintAST(snapshot bool) bundler.PrintAST {
-	if snapshot {
-		// TODO: we need more snapshot related config here
+func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
+	if snapshot.CreateSnapshot {
+		shouldReplaceRequire := snapshot.ShouldReplaceRequire
+		if shouldReplaceRequire == nil {
+			shouldReplaceRequire = replaceNone
+		}
+
 		return func(
 			tree js_ast.AST,
 			symbols js_ast.SymbolMap,
 			jsRenamer renamer.Renamer,
 			options js_printer.PrintOptions) js_printer.PrintResult {
 			r := snap_renamer.WrapRenamer(&jsRenamer, symbols)
-			return snap_printer.Print(tree, symbols, &r, options, replaceAll)
+			return snap_printer.Print(tree, symbols, &r, options, shouldReplaceRequire)
 		}
 	} else {
 		return js_printer.Print
