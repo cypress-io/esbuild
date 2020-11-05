@@ -1,6 +1,9 @@
 package snap_printer
 
-import "github.com/evanw/esbuild/internal/js_ast"
+import (
+	"github.com/evanw/esbuild/internal/js_ast"
+	"regexp"
+)
 
 // Tracks `let` statements that need to be inserted at the top level scope and
 // the top of the file.
@@ -22,14 +25,41 @@ import "github.com/evanw/esbuild/internal/js_ast"
 // };
 // ```
 
+
 func (p *printer) trackTopLevelVar(decl string) {
 	p.topLevelVars = append(p.topLevelVars, decl)
 }
 
+// var require_express2 = __commonJS((exports, module2) => {
+var wrapperRx = regexp.MustCompile(`^var require_.+ = __commonJS\([^{]+{(\r\n|\r|\n)`)
 func prepend(p *printer, s string) {
 	data := []byte(s)
-	p.js = append(data, p.js...)
+	// We need to ensure that we add our declarations inside the wrapper function when we're dealing
+	// with a bundle and the module code is wrapped.
+	// Therefore some copying is necessary even though it most likely affects performance.
 
+	idxs := wrapperRx.FindIndex(p.js)
+	if idxs == nil {
+		p.js = append(data, p.js...)
+	} else {
+		end := idxs[1]
+		jsLen := len(p.js)
+		dataLen := len(data)
+		completeJs := make([]byte, jsLen + dataLen)
+		// Copy the wrapper open code that we matched
+		for i := 0; i < end; i++ {
+			completeJs[i] = p.js[i]
+		}
+		// Insert our declaration code
+		for i := 0; i < dataLen; i++ {
+			completeJs[i + end] = data[i]
+		}
+		// Copy the module body and wrapper close code after our declarations
+		for i := end; i < jsLen; i++ {
+			completeJs[i + dataLen] = p.js[i]
+		}
+		p.js = completeJs
+	}
 }
 
 func (p *printer) prependTopLevelDecls() {
@@ -43,7 +73,6 @@ func (p *printer) prependTopLevelDecls() {
 		}
 		decl += v
 	}
-	// TODO: consider not adding a newline here to avoid affecting source-mapped lines
 	decl += ";\n"
 	prepend(p, decl)
 }
