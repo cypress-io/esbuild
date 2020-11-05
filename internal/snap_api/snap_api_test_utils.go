@@ -17,7 +17,8 @@ type built struct {
 }
 
 type buildResult struct {
-	files map[string]string
+	files  map[string]string
+	bundle string
 }
 
 type suite struct {
@@ -51,7 +52,10 @@ func assertEqual(t *testing.T, key string, a interface{}, b interface{}) {
 func extractBuildResult(bundle string) buildResult {
 	newFileSectionRx := regexp.MustCompile(`^\/\/ (.+)$`)
 	lines := strings.Split(bundle, "\n")
-	result := buildResult{files: make(map[string]string)}
+	result := buildResult{
+		bundle: bundle,
+		files:  make(map[string]string),
+	}
 	var currentFile string
 	var currentContent string
 	for _, line := range lines {
@@ -82,6 +86,7 @@ func printBuildResult(result buildResult) {
 	}
 	fmt.Println("    }")
 	fmt.Println("}")
+	fmt.Printf("\n----------------\n%s\n----------------\n", result.bundle)
 }
 
 func verifyBuildResult(t *testing.T, result buildResult, expected buildResult) {
