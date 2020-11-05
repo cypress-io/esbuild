@@ -377,8 +377,7 @@ function main() {
 `, ReplaceAll)
 }
 
-// TODO: this needs to be done at another level as it is not about rewriting JS, but
-//  about converting a JSON file to a JS file which exports the JSON as an object
+// This is covered by the bundler which rewrites JSON files appropriately
 // test('JSON source') line 322
 
 // test('Object spread properties')

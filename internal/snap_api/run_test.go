@@ -163,15 +163,98 @@ func TestRunSnap(t *testing.T) {
 
 --- Encountered Issues ---
 
-# inherits: wrapper
+# Problematic Modules that need to be excluded
+
+## debug
+
+// ../../examples/express-app/node_modules/debug/src/node.js
+
+- examines process keys on module load
+
+## safer-buffer, safe-buffer
+
+// ../../examples/express-app/node_modules/safer-buffer/safer.js
+// ../../examples/express-app/node_modules/safe-buffer/index.js
+
+- accesses Buffer on module load to populate it's buffer wrapper
+
+## inherits: wrapper
 
 // ../../examples/express-app/node_modules/inherits/inherits.js
 
-Resolves `util.inherits` at module level to know what to export.
+- Resolves `util.inherits` at module level to know what to export.
 
-## Require Rewrites
+### http-errors
+
+// ../../examples/express-app/node_modules/send/node_modules/http-errors/index.js
+
+- calls `createHttpErrorConstructor` during module load which accesses `inherits` module
+
+## iconv-lite
+
+// ../../examples/express-app/node_modules/iconv-lite/lib/index.js
+
+- accesses Node.js process at module level to resolve node version `nodeVer`
+- might not be a problem if we just return `undefined` when snapshotting
+- alternative is to return a fake process object which has a valid Node.js version in
+  order to include `iconv-lite/lib/streams.js` in the snapshot
+
+## body-parser, express
+
+// ../../examples/express-app/node_modules/body-parser/index.js
+// ../../examples/express-app/node_modules/express/lib/utils.js
+
+- resolve 'depd' to deprecate its exported function,
+  which is only a problem if we wanted to exclude it
+
+## express/lib/response
+
+// ../../examples/express-app/node_modules/express/lib/response.js
+
+- accesses core 'http' module via `__get_res__` during module load
+## methods
+
+// ../../examples/express-app/node_modules/methods/index.js
+
+- accesses core 'http' module to export methods during module load
+
+## mine
+
+// ../../examples/express-app/node_modules/mime/mime.js
+
+- accesses process and possibly console via `new Mime().define(...)` during module load
+
+## send
+
+// ../../examples/express-app/node_modules/send/index.js
+
+- accesses core 'util' `inherits` as well as 'mime' during module load
+
+# serve-static
+
+// ../../examples/express-app/node_modules/serve-static/index.js
+
+- accesses 'send' during module load
+
+## request
+
+// ../../examples/express-app/node_modules/express/lib/request.js
+
+- accesses core 'http' module via `__get_req__` during module load
+
+# Require Rewrites
 
 Making 'inherits' an external via `External:    []string{"inherits"},`
 caused it to not be included in the bundle which possibly is the only solution here.
+
+# Global Rewrites
+
+- some places wrap prototypes, i.e. `Array.prototype.slice` or `Object.prototype.toString`, not
+  sure if that is needed, examples:
+  // ../../examples/express-app/node_modules/express/lib/router/route.js
+  // ../../examples/express-app/node_modules/express/lib/router/index.js
+
+- some places wrap `Object.create`, not sure if necessary, examples:
+  // ../../examples/express-app/node_modules/negotiator/index.js
 
 */
