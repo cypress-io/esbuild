@@ -71,12 +71,14 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, propDepth int, call
 		if record.Kind == ast.ImportDynamic {
 			break
 		}
-		return &RequireExpr{
-			requireCall: expr,
-			requireArg:  record.Path.Text,
-			propChain:   make([]string, propDepth),
-			callChain:   make([][]js_ast.Expr, callDepth),
-		}, true
+		if p.shouldReplaceRequire(record.Path.Text) {
+			return &RequireExpr{
+				requireCall: expr,
+				requireArg:  record.Path.Text,
+				propChain:   make([]string, propDepth),
+				callChain:   make([][]js_ast.Expr, callDepth),
+			}, true
+		}
 
 	case *js_ast.ECall:
 		target := data.Target
