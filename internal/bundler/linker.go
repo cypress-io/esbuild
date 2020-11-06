@@ -3550,9 +3550,10 @@ func (repr *chunkReprJS) generate(c *linkerContext, chunk *chunkInfo) func([]ast
 					} else {
 						jMeta.AddString(",")
 					}
-					jMeta.AddString(fmt.Sprintf("\n        %s: {\n          \"bytesInOutput\": %d\n        }",
+					jMeta.AddString(fmt.Sprintf("\n        %s: {\n          \"bytesInOutput\": %d,\n           \"fileInfo\": %s\n        }",
 						js_printer.QuoteForJSON(c.files[compileResult.sourceIndex].source.PrettyPath, c.options.ASCIIOnly),
-						len(js)))
+						len(js),
+						fileInfoJSON(&c.files[compileResult.sourceIndex], r)))
 				}
 			}
 
