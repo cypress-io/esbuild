@@ -29,6 +29,9 @@ func replaceNone(string) bool { return false }
 func replaceAll(string) bool  { return true }
 
 func TestRunSnap(t *testing.T) {
+	platform := api.PlatformNode
+	external := []string{"inherits"}
+
 	result := api.Build(api.BuildOptions{
 		// https://esbuild.github.io/api/#log-level
 		LogLevel: api.LogLevelInfo,
@@ -59,7 +62,7 @@ func TestRunSnap(t *testing.T) {
 		// - the default output format is set to cjs
 		// - built-in node modules such as fs are automatically marked as external
 		// - disables the interpretation of the browser field in package.json
-		Platform: api.PlatformNode,
+		Platform: platform,
 		Engines: []api.Engine{
 			{api.EngineNode, "12.4"},
 		},
@@ -70,7 +73,7 @@ func TestRunSnap(t *testing.T) {
 
 		// the import will be preserved and will be evaluated at run time instead
 		// https://esbuild.github.io/api/#external
-		External: []string{"inherits"},
+		External: external,
 
 		//
 		// Combination of the below two might be a better way to replace globals
@@ -94,8 +97,8 @@ func TestRunSnap(t *testing.T) {
 		Write: true,
 
 		Snapshot: &api.SnapshotOptions{
-			CreateSnapshot: true,
-			ShouldReplaceRequire: replaceNone,
+			CreateSnapshot:       true,
+			ShouldReplaceRequire: IsExternalModule(platform, external),
 		},
 
 		//
