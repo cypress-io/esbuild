@@ -7,10 +7,30 @@ const path = require('path')
 
 const snapshotScriptPath = path.join(__dirname, 'blueprint.js')
 
-function createSnapshotScript(bundlePath, options = {}) {
+const esbuildRoot = path.resolve(__dirname, '../../../')
+const metaPath = path.resolve(esbuildRoot, 'internal/snap_api/output/meta.json')
+const bundlePath = path.resolve(esbuildRoot, 'internal/snap_api/output/snap.js')
+
+const requireDefinitions = (bundle, definitions) => `
+  customRequire.definitions = (function (require) {
+    //
+    // Start Bundle generated with esbuild
+    //
+    ${bundle}
+    //
+    // End Bundle generated with esbuild
+    //
+
+    return { ${definitions.join('\n')} 
+    }
+  })(customRequire)
+`
+
+function createSnapshotScript(bundlePath, metaPath, baseDir, options = {}) {
   // TODO: inject this (or a slightly modified version) into the snapshotScript
 
-  const bundle = fs.readFileSync(bundlePath)
+  const meta = require(metaPath)
+  const bundle = fs.readFileSync(bundlePath, 'utf8')
   let snapshotScript = fs.readFileSync(snapshotScriptPath, 'utf8')
 
   // TODO: verify we don't need to replace `require(main)`
@@ -39,10 +59,27 @@ function createSnapshotScript(bundlePath, options = {}) {
     `var snapshotAuxiliaryData = ${auxiliaryData};` +
     snapshotScript.slice(auxiliaryDataAssignmentEndIndex)
 
-  // TODO: `require.definitions` may work differently in our case since they are already rewritten
-  // to functions, i.e. the original `require` calls were replaced with function calls.
-  // The main question is what is the importance of the `startRow`, `endRow` and related
-  // snapshotSections?
+  //
+  // require definitions
+  //
+  const definitionsAssignment = 'customRequire.definitions = {}'
+  const definitions = []
+  for (const output of Object.values(meta.outputs)) {
+    for (const input of Object.values(output.inputs)) {
+      const { fullPath, replacementFunction } = input.fileInfo
+      const relPath = path.relative(baseDir, fullPath)
+      definitions.push(`
+      './${relPath}': function (
+          exports,
+          module,
+          __filename,
+          __dirname) { ${replacementFunction}(exports, module) },`)
+    }
+  }
+
+  const indentedBundle = bundle.split('\n').join('\n    ')
+  const requireDefs = requireDefinitions(indentedBundle, definitions)
+  snapshotScript = snapshotScript.replace(definitionsAssignment, requireDefs)
 
   return snapshotScript
 }
@@ -50,6 +87,8 @@ function createSnapshotScript(bundlePath, options = {}) {
 module.exports = { createSnapshotScript }
 
 const updatedScript = createSnapshotScript(
-  path.join(__dirname, '..', 'output_snap.js')
+  bundlePath,
+  metaPath,
+  '/Volumes/d/dev/cy/perf-tr1/v8-snapshot-utils/example-minimal'
 )
 console.log(updatedScript)
