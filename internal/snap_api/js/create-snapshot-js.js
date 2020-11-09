@@ -2,6 +2,7 @@
 
 // modified from electron-link/src/generate-snapshot-script.js
 
+const assert = require('assert').strict
 const fs = require('fs')
 const path = require('path')
 
@@ -27,13 +28,9 @@ const requireDefinitions = (bundle, definitions) => `
 `
 
 function createSnapshotScript(bundlePath, metaPath, baseDir, options = {}) {
-  // TODO: inject this (or a slightly modified version) into the snapshotScript
-
   const meta = require(metaPath)
   const bundle = fs.readFileSync(bundlePath, 'utf8')
   let snapshotScript = fs.readFileSync(snapshotScriptPath, 'utf8')
-
-  // TODO: verify we don't need to replace `require(main)`
 
   //
   // Platform specifics
@@ -60,13 +57,14 @@ function createSnapshotScript(bundlePath, metaPath, baseDir, options = {}) {
     snapshotScript.slice(auxiliaryDataAssignmentEndIndex)
 
   //
-  // require definitions
+  // require definitions and mainModuleRequirePath
   //
+  let mainModuleRequirePath
   const definitionsAssignment = 'customRequire.definitions = {}'
   const definitions = []
   for (const output of Object.values(meta.outputs)) {
     for (const input of Object.values(output.inputs)) {
-      const { fullPath, replacementFunction } = input.fileInfo
+      const { fullPath, replacementFunction, isEntryPoint } = input.fileInfo
       const relPath = path.relative(baseDir, fullPath)
       definitions.push(`
       './${relPath}': function (
@@ -74,8 +72,19 @@ function createSnapshotScript(bundlePath, metaPath, baseDir, options = {}) {
           module,
           __filename,
           __dirname) { ${replacementFunction}(exports, module) },`)
+      if (isEntryPoint) {
+        mainModuleRequirePath = `./${relPath}`
+      }
     }
   }
+  assert(
+    mainModuleRequirePath != null,
+    'metadata should have exactly one entry point'
+  )
+  snapshotScript = snapshotScript.replace(
+    'mainModuleRequirePath',
+    JSON.stringify(mainModuleRequirePath)
+  )
 
   const indentedBundle = bundle.split('\n').join('\n    ')
   const requireDefs = requireDefinitions(indentedBundle, definitions)
