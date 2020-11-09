@@ -2988,7 +2988,7 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 	file := &c.files[partRange.sourceIndex]
 	repr := file.repr.(*reprJS)
 	nsExportPartIndex := repr.meta.nsExportPartIndex
-	needsWrapper := false
+	needsWrapper := c.createSnapshot && partRange.sourceIndex != runtime.SourceIndex
 	stmtList := stmtList{}
 
 	// Make sure the generated call to "__export(exports, ...)" comes first
