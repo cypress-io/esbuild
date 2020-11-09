@@ -92,6 +92,8 @@ type linkerContext struct {
 	// Prints the AST. This allows configuring the printer, i.e. to use the
 	// snap_printer instead of the default js_printer.
 	print PrintAST
+
+	createSnapshot bool
 }
 
 // This contains linker-specific metadata corresponding to a "file" struct
@@ -308,15 +310,7 @@ func (chunk *chunkInfo) relPath() string {
 	return path.Join(chunk.relDir, chunk.baseNameOrEmpty)
 }
 
-func newLinkerContext(
-	options *config.Options,
-	log logger.Log,
-	fs fs.FS,
-	res resolver.Resolver,
-	files []file,
-	entryPoints []uint32,
-	lcaAbsPath string,
-) linkerContext {
+func newLinkerContext(options *config.Options, createSnapshot bool, print PrintAST, log logger.Log, fs fs.FS, res resolver.Resolver, files []file, entryPoints []uint32, lcaAbsPath string, ) linkerContext {
 	// Clone information about symbols and files so we don't mutate the input data
 	c := linkerContext{
 		options:        options,
@@ -328,7 +322,8 @@ func newLinkerContext(
 		symbols:        js_ast.NewSymbolMap(len(files)),
 		reachableFiles: findReachableFiles(files, entryPoints),
 		lcaAbsPath:     lcaAbsPath,
-		print:          js_printer.Print,
+		print:          print,
+		createSnapshot: createSnapshot,
 	}
 
 	// Clone various things since we may mutate them later
@@ -458,10 +453,6 @@ func newLinkerContext(
 	}
 
 	return c
-}
-
-func (c *linkerContext) SetPrinter(print PrintAST) {
-	c.print = print
 }
 
 type indexAndPath struct {
@@ -3064,8 +3055,8 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 			}
 		}
 
-		// "__commonJS((exports, module) => { ... })"
 		var value js_ast.Expr
+		// "__commonJS((exports, module) => { ... })"
 		if c.options.UnsupportedJSFeatures.Has(compat.Arrow) {
 			value = js_ast.Expr{Data: &js_ast.ECall{
 				Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},

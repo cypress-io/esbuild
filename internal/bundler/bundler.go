@@ -880,7 +880,7 @@ type OutputFile struct {
 	IsExecutable bool
 }
 
-func (b *Bundle) Compile(log logger.Log, options config.Options, printAST PrintAST) []OutputFile {
+func (b *Bundle) Compile(log logger.Log, options config.Options, createSnapshot bool, printAST PrintAST) []OutputFile {
 	if options.ExtensionToLoader == nil {
 		options.ExtensionToLoader = DefaultExtensionToLoaderMap()
 	}
@@ -901,8 +901,7 @@ func (b *Bundle) Compile(log logger.Log, options config.Options, printAST PrintA
 	var resultGroups []linkGroup
 	if options.CodeSplitting {
 		// If code splitting is enabled, link all entry points together
-		c := newLinkerContext(&options, log, b.fs, b.res, b.files, b.entryPoints, lcaAbsPath)
-		c.SetPrinter(printAST)
+		c := newLinkerContext(&options, createSnapshot, printAST, log, b.fs, b.res, b.files, b.entryPoints, lcaAbsPath)
 		resultGroups = []linkGroup{{
 			outputFiles:    c.link(),
 			reachableFiles: c.reachableFiles,
@@ -914,8 +913,7 @@ func (b *Bundle) Compile(log logger.Log, options config.Options, printAST PrintA
 		for i, entryPoint := range b.entryPoints {
 			waitGroup.Add(1)
 			go func(i int, entryPoint uint32) {
-				c := newLinkerContext(&options, log, b.fs, b.res, b.files, []uint32{entryPoint}, lcaAbsPath)
-				c.SetPrinter(printAST)
+				c := newLinkerContext(&options, createSnapshot, printAST, log, b.fs, b.res, b.files, []uint32{entryPoint}, lcaAbsPath)
 				resultGroups[i] = linkGroup{
 					outputFiles:    c.link(),
 					reachableFiles: c.reachableFiles,
@@ -1172,7 +1170,7 @@ func (cache *runtimeCache) parseRuntime(options *config.Options) (source logger.
 		Platform:          key.Platform,
 		Defines:           cache.processedDefines(key.Platform),
 		UnsupportedJSFeatures: compat.UnsupportedJSFeatures(
-			map[compat.Engine][]int{compat.ES: []int{constraint}}),
+			map[compat.Engine][]int{compat.ES: {constraint}}),
 
 		// Always do tree shaking for the runtime because we never want to
 		// include unnecessary runtime code
@@ -1222,11 +1220,11 @@ func (cache *runtimeCache) processedDefines(key config.Platform) (defines *confi
 		platform = "node"
 	}
 	result := config.ProcessDefines(map[string]config.DefineData{
-		"__platform": config.DefineData{
+		"__platform": {
 			DefineFunc: func(logger.Loc, config.FindSymbol) js_ast.E {
 				return &js_ast.EString{Value: js_lexer.StringToUTF16(platform)}
 			},
-		},
+				},
 	})
 	defines = &result
 
