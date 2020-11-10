@@ -119,9 +119,9 @@ func parseOptionsImpl(osArgs []string, buildOpts *api.BuildOptions, transformOpt
 
 		case arg == "--snapshot":
 			if buildOpts != nil {
-				buildOpts.Snapshot = true
+				buildOpts.Snapshot = &api.SnapshotOptions{CreateSnapshot: false}
 			} else {
-				transformOpts.Snapshot = true
+				buildOpts.Snapshot = &api.SnapshotOptions{CreateSnapshot: true}
 			}
 
 		case strings.HasPrefix(arg, "--sourcefile="):
