@@ -1,5 +1,8 @@
 ESBUILD_VERSION = $(shell cat version.txt)
 
+snapshot: cmd/esbuild/*.go pkg/*/*.go internal/*/*.go go.mod
+	go build "-ldflags=-s -w" ./cmd/snapshot
+
 esbuild: cmd/esbuild/*.go pkg/*/*.go internal/*/*.go go.mod
 	go build "-ldflags=-s -w" ./cmd/esbuild
 
