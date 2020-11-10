@@ -634,3 +634,13 @@ function relToBase(s) {
 `, ReplaceAll)
 }
 
+func TestPropChainWithCalledProperty(t *testing.T) {
+	expectPrinted(t, `
+var tmpDir = require('os').tmpdir();
+`, `
+let tmpDir;
+function __get_tmpDir__() {
+  return tmpDir = tmpDir || require("os").tmpdir()
+}
+`, ReplaceAll)
+}

@@ -113,6 +113,21 @@ func (p *printer) extractRequireExpression(expr js_ast.Expr, propDepth int, call
 			idx := len(require.callChain) - 1 - callDepth
 			require.callChain[idx] = data.Args
 			return require, true
+
+		case *js_ast.EDot:
+			// var tmpDir = require('os').tmpdir();
+			require, ok := p.extractRequireExpression(data.Target, propDepth, callDepth)
+			if !ok {
+				return require, false
+			}
+			// add call to the property that was added at this point
+			idx := len(require.propChain) - 1 - propDepth
+			// TODO: at this point we're not considering any args
+			if len(data.Args) > 0 {
+				panic("Not yet handling args on a called property")
+			}
+			require.propChain[idx] += "()"
+			return require, true
 		}
 
 	case *js_ast.EDot:
