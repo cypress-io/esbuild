@@ -30,6 +30,12 @@ import (
 	"github.com/evanw/esbuild/internal/xxhash"
 )
 
+type PrintAST func(
+	tree js_ast.AST,
+	symbols js_ast.SymbolMap,
+	r renamer.Renamer,
+	options js_printer.Options) js_printer.PrintResult
+
 type linkerContext struct {
 	options     *config.Options
 	log         logger.Log
@@ -70,6 +76,10 @@ type linkerContext struct {
 	// output paths have been computed.
 	uniqueKeyPrefix      string
 	uniqueKeyPrefixBytes []byte // This is just "uniqueKeyPrefix" in byte form
+
+	// Prints the AST. This allows configuring the printer, i.e. to use the
+	// snap_printer instead of the default js_printer.
+	print PrintAST
 }
 
 type wrapKind uint8
@@ -377,6 +387,7 @@ func wrappedLog(log logger.Log) logger.Log {
 
 func newLinkerContext(
 	options *config.Options,
+	print PrintAST,
 	log logger.Log,
 	fs fs.FS,
 	res resolver.Resolver,
@@ -398,6 +409,7 @@ func newLinkerContext(
 		symbols:           js_ast.NewSymbolMap(len(files)),
 		reachableFiles:    reachableFiles,
 		dataForSourceMaps: dataForSourceMaps,
+		print:             print,
 	}
 
 	// Clone various things since we may mutate them later
@@ -3545,7 +3557,7 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 	file := &c.files[partRange.sourceIndex]
 	repr := file.repr.(*reprJS)
 	nsExportPartIndex := repr.meta.nsExportPartIndex
-	needsWrapper := false
+	needsWrapper := c.options.CreateSnapshot && partRange.sourceIndex != runtime.SourceIndex
 	stmtList := stmtList{}
 
 	// Make sure the generated call to "__export(exports, ...)" comes first
@@ -3603,12 +3615,17 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 	if needsWrapper {
 		switch repr.meta.wrap {
 		case wrapCJS:
-			// Only include the arguments that are actually used
 			args := []js_ast.Arg{}
-			if repr.ast.UsesExportsRef || repr.ast.UsesModuleRef {
-				args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ExportsRef}}})
-				if repr.ast.UsesModuleRef {
-					args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ModuleRef}}})
+
+			if c.options.CreateSnapshot {
+				stmts = append(stmtList.es6StmtsForCJSWrap, requireDefinitionStmt(&r, repr, stmts, commonJSRef))
+			} else {
+				// Only include the arguments that are actually used
+				if repr.ast.UsesExportsRef || repr.ast.UsesModuleRef {
+					args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ExportsRef}}})
+					if repr.ast.UsesModuleRef {
+						args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ModuleRef}}})
+					}
 				}
 			}
 
@@ -3633,7 +3650,6 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 					Value:   &value,
 				}},
 			}})
-
 		case wrapESM:
 			// The wrapper only needs to be "async" if there is a transitive async
 			// dependency. For correctness, we must not use "async" if the module
@@ -3736,12 +3752,14 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 		InputSourceMap:               inputSourceMap,
 		LineOffsetTables:             lineOffsetTables,
 		RequireOrImportMetaForSource: c.requireOrImportMetaForSource,
+		IsRuntime:                    partRange.sourceIndex == runtime.SourceIndex,
+		FilePath:                     file.source.PrettyPath,
 	}
 	tree := repr.ast
 	tree.Directive = "" // This is handled elsewhere
 	tree.Parts = []js_ast.Part{{Stmts: stmts}}
 	*result = compileResultJS{
-		PrintResult: js_printer.Print(tree, c.symbols, r, printOptions),
+		PrintResult: c.print(tree, c.symbols, r, printOptions),
 		sourceIndex: partRange.sourceIndex,
 	}
 
@@ -4041,7 +4059,7 @@ func (c *linkerContext) generateEntryPointTailJS(
 		UnsupportedFeatures:          c.options.UnsupportedJSFeatures,
 		RequireOrImportMetaForSource: c.requireOrImportMetaForSource,
 	}
-	result.PrintResult = js_printer.Print(tree, c.symbols, r, printOptions)
+	result.PrintResult = c.print(tree, c.symbols, r, printOptions)
 	return
 }
 
@@ -4299,11 +4317,11 @@ func (c *linkerContext) generateChunkJS(chunks []chunkInfo, chunkIndex int, chun
 				Path: logger.Path{Text: chunks[otherChunkIndex].uniqueKey},
 			}
 		}
-		crossChunkPrefix = js_printer.Print(js_ast.AST{
+		crossChunkPrefix = c.print(js_ast.AST{
 			ImportRecords: crossChunkImportRecords,
 			Parts:         []js_ast.Part{{Stmts: chunkRepr.crossChunkPrefixStmts}},
 		}, c.symbols, r, printOptions).JS
-		crossChunkSuffix = js_printer.Print(js_ast.AST{
+		crossChunkSuffix = c.print(js_ast.AST{
 			Parts: []js_ast.Part{{Stmts: chunkRepr.crossChunkSuffixStmts}},
 		}, c.symbols, r, printOptions).JS
 	}
@@ -4591,6 +4609,7 @@ func (c *linkerContext) generateChunkJS(chunks []chunkInfo, chunkIndex int, chun
 				jMeta.AddString(fmt.Sprintf("\n        %s: {\n          \"bytesInOutput\": %d\n        %s}",
 					js_printer.QuoteForJSON(path, c.options.ASCIIOnly), metaByteCount[path], extra))
 			}
+
 			if !isFirstMeta {
 				jMeta.AddString("\n      ")
 			}
