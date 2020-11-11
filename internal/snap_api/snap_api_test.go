@@ -25,13 +25,15 @@ func TestEntryRequiringLocalModule(t *testing.T) {
 		buildResult{
 			files: map[string]string{
 				`/entry.js`: `
+var require_entry = __commonJS((exports, module) => {
 let oneTwoThree;
 function __get_oneTwoThree__() {
   return oneTwoThree = oneTwoThree || require_foo().oneTwoThree
 }
-module.exports = function() {
-  get_console().log(__get_oneTwoThree__());
-};`,
+  module.exports = function() {
+    get_console().log(__get_oneTwoThree__());
+  };
+});`,
 				`/foo.js`: `
 var require_foo = __commonJS((exports2) => {
   exports2.oneTwoThree = 123;
@@ -61,13 +63,15 @@ var require_foo = __commonJS((exports2) => {
   exports2.oneTwoThree = 123;
 });`,
 				`/entry.js`: `
+var require_entry = __commonJS((exports, module) => {
 let foo;
 function __get_foo__() {
   return foo = foo || __toModule(require_foo())
 }
-module.exports = function() {
-  get_console().log(__get_foo__().oneTwoThree);
-};`,
+  module.exports = function() {
+    get_console().log(__get_foo__().oneTwoThree);
+  };
+});`,
 			},
 		},
 	)
@@ -87,13 +91,15 @@ module.exports = function () { deprecate() }
 		buildResult{
 			files: map[string]string{
 				`/entry.js`: `
+var require_entry = __commonJS((exports, module) => {
 let deprecate;
 function __get_deprecate__() {
   return deprecate = deprecate || require_depd()("http-errors")
 }
-module.exports = function() {
-  __get_deprecate__()();
-};`,
+  module.exports = function() {
+    __get_deprecate__()();
+  };
+});`,
 			},
 		},
 	)
@@ -117,7 +123,9 @@ var require_body_parser = __commonJS((exports, module2) => {
   exports = module2.exports = foo();
 });`,
 				"/entry.js": `
-require_body_parser();`,
+var require_entry = __commonJS(() => {
+  require_body_parser();
+});`,
 			},
 		},
 	)

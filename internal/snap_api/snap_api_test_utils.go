@@ -100,6 +100,10 @@ func verifyBuildResult(t *testing.T, result buildResult, expected buildResult) {
 
 func (s *suite) build(args built) buildResult {
 	fs := fs.MockFS(args.files)
+	shouldReplaceRequire := args.shouldReplaceRequire
+	if shouldReplaceRequire == nil {
+		shouldReplaceRequire = replaceAll
+	}
 	result := api.Build(api.BuildOptions{
 		LogLevel:    api.LogLevelInfo,
 		Target:      api.ES2020,
@@ -109,7 +113,7 @@ func (s *suite) build(args built) buildResult {
 		Platform:    api.PlatformNode,
 		Snapshot: &api.SnapshotOptions{
 			CreateSnapshot:       true,
-			ShouldReplaceRequire: args.shouldReplaceRequire,
+			ShouldReplaceRequire: shouldReplaceRequire,
 		},
 		FS: fs,
 	})
