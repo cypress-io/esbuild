@@ -77,6 +77,8 @@
 //
 package api
 
+import "github.com/evanw/esbuild/internal/fs"
+
 type SourceMap uint8
 
 const (
@@ -246,6 +248,9 @@ type BuildOptions struct {
 	Write       bool
 	Incremental bool
 	Plugins     []Plugin
+
+	Snapshot *SnapshotOptions
+	FS       fs.FS
 }
 
 type StdinOptions struct {
@@ -253,6 +258,14 @@ type StdinOptions struct {
 	ResolveDir string
 	Sourcefile string
 	Loader     Loader
+}
+
+type ShouldReplaceRequirePredicate func(string) bool
+
+type SnapshotOptions struct {
+	CreateSnapshot       bool
+	ShouldReplaceRequire ShouldReplaceRequirePredicate
+	AbsBasedir           string
 }
 
 type BuildResult struct {
@@ -306,6 +319,8 @@ type TransformOptions struct {
 
 	Sourcefile string
 	Loader     Loader
+
+	Snapshot *SnapshotOptions
 }
 
 type TransformResult struct {
