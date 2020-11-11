@@ -218,6 +218,10 @@ type Options struct {
 
 	SourceMap SourceMap
 	Stdin     *StdinInfo
+
+	// Snapshot
+	CreateSnapshot     bool
+	SnapshotAbsBaseDir string
 }
 
 type InjectedFile struct {
