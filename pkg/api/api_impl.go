@@ -511,7 +511,12 @@ func rebuildImpl(
 	log logger.Log,
 ) BuildResult {
 	// Convert and validate the buildOpts
-	realFS := fs.RealFS()
+	var realFS fs.FS
+	if buildOpts.FS != nil {
+		realFS = buildOpts.FS
+	} else {
+		realFS = fs.RealFS()
+	}
 	jsFeatures, cssFeatures := validateFeatures(log, buildOpts.Target, buildOpts.Engines)
 	outJS, outCSS := validateOutputExtensions(log, buildOpts.OutExtensions)
 	options := config.Options{
@@ -550,6 +555,8 @@ func rebuildImpl(
 		Footer:               buildOpts.Footer,
 		Plugins:              plugins,
 	}
+	addSnapshotOpts(&buildOpts, &options)
+
 	for i, path := range buildOpts.Inject {
 		options.InjectAbsPaths[i] = validatePath(log, realFS, path)
 	}
@@ -628,6 +635,13 @@ func rebuildImpl(
 		log.AddError(nil, logger.Loc{}, "Splitting currently only works with the \"esm\" format")
 	}
 
+	// Default to not generating snapshot output if it is not set at all
+	if buildOpts.Snapshot == nil {
+		buildOpts.Snapshot = &SnapshotOptions{CreateSnapshot: false}
+	}
+
+	loadPlugins(realFS, log, buildOpts.Plugins)
+
 	var outputFiles []OutputFile
 
 	// Stop now if there were errors
@@ -639,7 +653,7 @@ func rebuildImpl(
 		// Stop now if there were errors
 		if !log.HasErrors() {
 			// Compile the bundle
-			results := bundle.Compile(log, options)
+			results := bundle.Compile(log, options, createPrintAST(buildOpts.Snapshot))
 
 			// Stop now if there were errors
 			if !log.HasErrors() {
@@ -762,6 +776,10 @@ func transformImpl(input string, transformOpts TransformOptions) TransformResult
 	if transformOpts.Loader == LoaderNone {
 		transformOpts.Loader = LoaderJS
 	}
+	// Default to not generating snapshot output if it is not set at all
+	if transformOpts.Snapshot == nil {
+		transformOpts.Snapshot = &SnapshotOptions{CreateSnapshot: false}
+	}
 
 	// Convert and validate the transformOpts
 	jsFeatures, cssFeatures := validateFeatures(log, transformOpts.Target, transformOpts.Engines)
@@ -816,7 +834,7 @@ func transformImpl(input string, transformOpts TransformOptions) TransformResult
 		// Stop now if there were errors
 		if !log.HasErrors() {
 			// Compile the bundle
-			results = bundle.Compile(log, options)
+			results = bundle.Compile(log, options, createPrintAST(transformOpts.Snapshot))
 		}
 	}
 
