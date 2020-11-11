@@ -241,9 +241,8 @@ type Options struct {
 	optionsThatSupportStructuralEquality
 
 	// Snapshot related
-	CreateSnapshot bool
+	CreateSnapshot     bool
 	SnapshotAbsBaseDir string
-
 }
 
 type optionsThatSupportStructuralEquality struct {

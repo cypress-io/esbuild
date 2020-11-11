@@ -55,6 +55,12 @@ func (bs *bitSet) bitwiseOrWith(other bitSet) {
 	}
 }
 
+type PrintAST func(
+	tree js_ast.AST,
+	symbols js_ast.SymbolMap,
+	r renamer.Renamer,
+	options js_printer.Options) js_printer.PrintResult
+
 type linkerContext struct {
 	options     *config.Options
 	log         logger.Log
@@ -84,6 +90,10 @@ type linkerContext struct {
 
 	// We may need to refer to the CommonJS "module" symbol for exports
 	unboundModuleRef js_ast.Ref
+
+	// Prints the AST. This allows configuring the printer, i.e. to use the
+	// snap_printer instead of the default js_printer.
+	print PrintAST
 }
 
 // This contains linker-specific metadata corresponding to a "file" struct
@@ -321,6 +331,7 @@ func (chunk *chunkInfo) relPath() string {
 
 func newLinkerContext(
 	options *config.Options,
+	print PrintAST,
 	log logger.Log,
 	fs fs.FS,
 	res resolver.Resolver,
@@ -337,6 +348,7 @@ func newLinkerContext(
 		files:          make([]file, len(files)),
 		symbols:        js_ast.NewSymbolMap(len(files)),
 		reachableFiles: findReachableFiles(files, entryPoints),
+		print:          print,
 	}
 
 	// Clone various things since we may mutate them later
@@ -3145,7 +3157,7 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 	file := &c.files[partRange.sourceIndex]
 	repr := file.repr.(*reprJS)
 	nsExportPartIndex := repr.meta.nsExportPartIndex
-	needsWrapper := false
+	needsWrapper := c.options.CreateSnapshot && partRange.sourceIndex != runtime.SourceIndex
 	stmtList := stmtList{}
 
 	// Make sure the generated call to "__export(exports, ...)" comes first
@@ -3203,36 +3215,40 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 
 	// Optionally wrap all statements in a closure for CommonJS
 	if needsWrapper {
-		// Only include the arguments that are actually used
-		args := []js_ast.Arg{}
-		if repr.ast.UsesExportsRef || repr.ast.UsesModuleRef {
-			args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ExportsRef}}})
-			if repr.ast.UsesModuleRef {
-				args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ModuleRef}}})
-			}
-		}
-
-		// "__commonJS((exports, module) => { ... })"
-		var value js_ast.Expr
-		if c.options.UnsupportedJSFeatures.Has(compat.Arrow) {
-			value = js_ast.Expr{Data: &js_ast.ECall{
-				Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},
-				Args:   []js_ast.Expr{{Data: &js_ast.EFunction{Fn: js_ast.Fn{Args: args, Body: js_ast.FnBody{Stmts: stmts}}}}},
-			}}
+		if c.options.CreateSnapshot {
+			stmts = append(stmtList.es6StmtsForCJSWrap, requireDefinitionStmt(&r, repr, stmts, commonJSRef))
 		} else {
-			value = js_ast.Expr{Data: &js_ast.ECall{
-				Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},
-				Args:   []js_ast.Expr{{Data: &js_ast.EArrow{Args: args, Body: js_ast.FnBody{Stmts: stmts}}}},
-			}}
-		}
+			// Only include the arguments that are actually used
+			args := []js_ast.Arg{}
+			if repr.ast.UsesExportsRef || repr.ast.UsesModuleRef {
+				args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ExportsRef}}})
+				if repr.ast.UsesModuleRef {
+					args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ModuleRef}}})
+				}
+			}
 
-		// "var require_foo = __commonJS((exports, module) => { ... });"
-		stmts = append(stmtList.es6StmtsForCJSWrap, js_ast.Stmt{Data: &js_ast.SLocal{
-			Decls: []js_ast.Decl{{
-				Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.WrapperRef}},
-				Value:   &value,
-			}},
-		}})
+			var value js_ast.Expr
+			// "__commonJS((exports, module) => { ... })"
+			if c.options.UnsupportedJSFeatures.Has(compat.Arrow) {
+				value = js_ast.Expr{Data: &js_ast.ECall{
+					Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},
+					Args:   []js_ast.Expr{{Data: &js_ast.EFunction{Fn: js_ast.Fn{Args: args, Body: js_ast.FnBody{Stmts: stmts}}}}},
+				}}
+			} else {
+				value = js_ast.Expr{Data: &js_ast.ECall{
+					Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},
+					Args:   []js_ast.Expr{{Data: &js_ast.EArrow{Args: args, Body: js_ast.FnBody{Stmts: stmts}}}},
+				}}
+			}
+
+			// "var require_foo = __commonJS((exports, module) => { ... });"
+			stmts = append(stmtList.es6StmtsForCJSWrap, js_ast.Stmt{Data: &js_ast.SLocal{
+				Decls: []js_ast.Decl{{
+					Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.WrapperRef}},
+					Value:   &value,
+				}},
+			}})
+		}
 	}
 
 	// Only generate a source map if needed
@@ -3295,11 +3311,13 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 		WrapperRefForSource: func(sourceIndex uint32) js_ast.Ref {
 			return c.files[sourceIndex].repr.(*reprJS).ast.WrapperRef
 		},
+		IsRuntime: partRange.sourceIndex == runtime.SourceIndex,
+		FilePath: file.source.PrettyPath,
 	}
 	tree := repr.ast
 	tree.Parts = []js_ast.Part{{Stmts: stmts}}
 	*result = compileResultJS{
-		PrintResult: js_printer.Print(tree, c.symbols, r, printOptions),
+		PrintResult: c.print(tree, c.symbols, r, printOptions),
 		sourceIndex: partRange.sourceIndex,
 	}
 	if len(stmts) > 0 {
@@ -3317,7 +3335,7 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 	if len(stmtList.entryPointTail) > 0 {
 		tree := repr.ast
 		tree.Parts = []js_ast.Part{{Stmts: stmtList.entryPointTail}}
-		entryPointTail := js_printer.Print(tree, c.symbols, r, printOptions)
+		entryPointTail := c.print(tree, c.symbols, r, printOptions)
 		result.entryPointTail = &entryPointTail
 	}
 
@@ -3548,11 +3566,11 @@ func (repr *chunkReprJS) generate(c *linkerContext, chunk *chunkInfo) func([]ast
 				RemoveWhitespace: c.options.RemoveWhitespace,
 				MangleSyntax:     c.options.MangleSyntax,
 			}
-			crossChunkPrefix = js_printer.Print(js_ast.AST{
+			crossChunkPrefix = c.print(js_ast.AST{
 				ImportRecords: crossChunkImportRecords,
 				Parts:         []js_ast.Part{{Stmts: repr.crossChunkPrefixStmts}},
 			}, c.symbols, r, printOptions).JS
-			crossChunkSuffix = js_printer.Print(js_ast.AST{
+			crossChunkSuffix = c.print(js_ast.AST{
 				Parts: []js_ast.Part{{Stmts: repr.crossChunkSuffixStmts}},
 			}, c.symbols, r, printOptions).JS
 		}
@@ -3905,6 +3923,7 @@ func (repr *chunkReprJS) generate(c *linkerContext, chunk *chunkInfo) func([]ast
 				jMeta.AddString(fmt.Sprintf("\n        %s: {\n          \"bytesInOutput\": %d\n        }",
 					js_printer.QuoteForJSON(path, c.options.ASCIIOnly), metaByteCount[path]))
 			}
+
 			if !isFirstMeta {
 				jMeta.AddString("\n      ")
 			}

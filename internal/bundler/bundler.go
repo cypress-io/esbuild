@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -372,19 +373,45 @@ func parseFile(args parseArgs) {
 					result.resolveResults[importRecordIndex] = resolveResult
 					continue
 				}
+				var resolveResult *resolver.ResolveResult
+				var didLogError bool
 
-				// Run the resolver and log an error if the path couldn't be resolved
-				resolveResult, didLogError := runOnResolvePlugins(
-					args.options.Plugins,
-					args.res,
-					args.log,
-					args.fs,
-					&source,
-					record.Range,
-					record.Path.Text,
-					record.Kind,
-					absResolveDir,
-				)
+				if args.options.CreateSnapshot && strings.HasSuffix(record.Path.Text, ".node") {
+					fullParentFile := result.file.source.KeyPath.Text
+					fullParentDir := filepath.Dir(fullParentFile)
+					fullRecordFile := filepath.Join(fullParentDir, record.Path.Text)
+					relPath, err := filepath.Rel(args.options.SnapshotAbsBaseDir, fullRecordFile)
+					if err != nil {
+						panic(fmt.Sprintf(
+							"Failed to resolve %s from %s.\n%v\n",
+							record.Path.Text, fullRecordFile, err),
+						)
+					}
+					resolveResult = &resolver.ResolveResult{
+						PathPair: resolver.PathPair{
+							Primary: logger.Path{
+								Text: fmt.Sprintf("./%s", relPath),
+								// Setting to 'native' instead of 'file' prevents further rewrites of this
+								// path, see scanAllDependencies
+								Namespace: "native",
+							},
+						},
+					}
+					didLogError = false
+				} else {
+					// Run the resolver and log an error if the path couldn't be resolved
+					resolveResult, didLogError = runOnResolvePlugins(
+						args.options.Plugins,
+						args.res,
+						args.log,
+						args.fs,
+						&source,
+						record.Range,
+						record.Path.Text,
+						record.Kind,
+						absResolveDir,
+					)
+				}
 				cache[record.Path.Text] = resolveResult
 
 				// All "require.resolve()" imports should be external because we don't
@@ -420,8 +447,14 @@ func parseFile(args parseArgs) {
 						if absResolveDir == "" && pluginName != "" {
 							hint = fmt.Sprintf(" (the plugin %q didn't set a resolve directory)", pluginName)
 						}
-						args.log.AddRangeError(&source, record.Range,
-							fmt.Sprintf("Could not resolve %q%s", record.Path.Text, hint))
+						if args.options.CreateSnapshot {
+							args.log.AddRangeWarning(&source, record.Range,
+								fmt.Sprintf("Could not resolve %q%s", record.Path.Text, hint))
+						} else {
+
+							args.log.AddRangeError(&source, record.Range,
+								fmt.Sprintf("Could not resolve %q%s", record.Path.Text, hint))
+						}
 					}
 					continue
 				}
@@ -1083,7 +1116,7 @@ func (s *scanner) scanAllDependencies() {
 				}
 
 				path := resolveResult.PathPair.Primary
-				if !resolveResult.IsExternal {
+				if !resolveResult.IsExternal && !pathIsAlwaysExternal(s.options, path) {
 					// Handle a path within the bundle
 					prettyPath := s.res.PrettyPath(path)
 					sourceIndex := s.maybeParseFile(*resolveResult, prettyPath, &result.file.source, record.Range, inputKindNormal, nil)
@@ -1126,7 +1159,7 @@ func (s *scanner) processScannedFiles() []file {
 		// Begin the metadata chunk
 		if s.options.AbsMetadataFile != "" {
 			j.AddBytes(js_printer.QuoteForJSON(result.file.source.PrettyPath, s.options.ASCIIOnly))
-			j.AddString(fmt.Sprintf(": {\n      \"bytes\": %d,\n      \"imports\": [", len(result.file.source.Contents)))
+			j.AddString(fmt.Sprintf(": {\n      \"bytes\": %d,\n      \"fileInfo\": %s,\n     \"imports\": [", len(result.file.source.Contents), fileInfoJSON(&result.file)))
 		}
 
 		// Don't try to resolve paths if we're not bundling
@@ -1306,7 +1339,7 @@ type OutputFile struct {
 	IsExecutable bool
 }
 
-func (b *Bundle) Compile(log logger.Log, options config.Options) []OutputFile {
+func (b *Bundle) Compile(log logger.Log, options config.Options, printAST PrintAST) []OutputFile {
 	if options.ExtensionToLoader == nil {
 		options.ExtensionToLoader = DefaultExtensionToLoaderMap()
 	}
@@ -1335,7 +1368,7 @@ func (b *Bundle) Compile(log logger.Log, options config.Options) []OutputFile {
 	var resultGroups []linkGroup
 	if options.CodeSplitting {
 		// If code splitting is enabled, link all entry points together
-		c := newLinkerContext(&options, log, b.fs, b.res, b.files, b.entryPoints)
+		c := newLinkerContext(&options, printAST, log, b.fs, b.res, b.files, b.entryPoints)
 		resultGroups = []linkGroup{{
 			outputFiles:    c.link(),
 			reachableFiles: c.reachableFiles,
@@ -1347,7 +1380,7 @@ func (b *Bundle) Compile(log logger.Log, options config.Options) []OutputFile {
 		for i, entryPoint := range b.entryPoints {
 			waitGroup.Add(1)
 			go func(i int, entryPoint uint32) {
-				c := newLinkerContext(&options, log, b.fs, b.res, b.files, []uint32{entryPoint})
+				c := newLinkerContext(&options, printAST, log, b.fs, b.res, b.files, []uint32{entryPoint})
 				resultGroups[i] = linkGroup{
 					outputFiles:    c.link(),
 					reachableFiles: c.reachableFiles,
@@ -1570,10 +1603,14 @@ func (cache *runtimeCache) parseRuntime(options *config.Options) (source logger.
 	}
 
 	// Determine which source to use
-	if key.ES6 {
-		source = runtime.ES6Source
+	if options.CreateSnapshot {
+		source = runtime.SnapshotSource
 	} else {
-		source = runtime.ES5Source
+		if key.ES6 {
+			source = runtime.ES6Source
+		} else {
+			source = runtime.ES5Source
+		}
 	}
 
 	// Cache hit?
