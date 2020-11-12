@@ -56,6 +56,8 @@ type parser struct {
 	moduleRef                js_ast.Ref
 	importMetaRef            js_ast.Ref
 	promiseRef               js_ast.Ref
+	dirnameRef               js_ast.Ref
+	filenameRef              js_ast.Ref
 	findSymbolHelper         config.FindSymbol
 	symbolUses               map[js_ast.Ref]js_ast.SymbolUse
 	declaredSymbols          []js_ast.DeclaredSymbol
@@ -237,6 +239,11 @@ type Options struct {
 	// the name "optionsThatSupportStructuralEquality". This is only grouped like
 	// this to make the equality comparison easier and safer (and hopefully faster).
 	optionsThatSupportStructuralEquality
+
+	// Snapshot related
+	CreateSnapshot bool
+	SnapshotAbsBaseDir string
+
 }
 
 type optionsThatSupportStructuralEquality struct {
@@ -279,6 +286,8 @@ func OptionsFromConfig(options *config.Options) Options {
 			useDefineForClassFields:        options.UseDefineForClassFields,
 			suppressWarningsAboutWeirdCode: options.SuppressWarningsAboutWeirdCode,
 		},
+		CreateSnapshot:     options.CreateSnapshot,
+		SnapshotAbsBaseDir: options.SnapshotAbsBaseDir,
 	}
 }
 
@@ -7760,11 +7769,11 @@ func maybeJoinWithComma(a js_ast.Expr, b js_ast.Expr) js_ast.Expr {
 // AST nodes. That way you can mutate one during lowering without having to
 // worry about messing up other nodes.
 func (p *parser) captureValueWithPossibleSideEffects(
-	loc logger.Loc, // The location to use for the generated references
-	count int, // The expected number of references to generate
+	loc logger.Loc,    // The location to use for the generated references
+	count int,         // The expected number of references to generate
 	value js_ast.Expr, // The value that might have side effects
 ) (
-	func() js_ast.Expr, // Generates reference expressions "_a"
+	func() js_ast.Expr,            // Generates reference expressions "_a"
 	func(js_ast.Expr) js_ast.Expr, // Call this on the final expression
 ) {
 	wrapFunc := func(expr js_ast.Expr) js_ast.Expr {
@@ -11117,6 +11126,10 @@ func (p *parser) prepareForVisitPass() {
 		p.requireRef = p.newSymbol(js_ast.SymbolUnbound, "require")
 		p.moduleRef = p.newSymbol(js_ast.SymbolHoisted, "module")
 	}
+	if p.options.CreateSnapshot {
+		p.filenameRef = p.newSymbol(js_ast.SymbolHoisted, "__filename")
+		p.dirnameRef = p.newSymbol(js_ast.SymbolHoisted, "__dirname")
+	}
 
 	// Convert "import.meta" to a variable if it's not supported in the output format
 	if p.hasImportMeta && (p.options.unsupportedJSFeatures.Has(compat.ImportMeta) || (p.options.mode != config.ModePassThrough && !p.options.outputFormat.KeepES6ImportExportSyntax())) {
@@ -11365,7 +11378,7 @@ func (p *parser) toAST(source logger.Source, parts []js_ast.Part, hashbang strin
 	}
 
 	// Make a wrapper symbol in case we need to be wrapped in a closure
-	wrapperRef := p.newSymbol(js_ast.SymbolOther, "require_"+p.source.IdentifierName)
+	wrapperRef := p.getWrapperRef()
 
 	// Assign slots to symbols in nested scopes. This is some precomputation for
 	// the symbol renaming pass that will happen later in the linker. It's done
@@ -11383,6 +11396,9 @@ func (p *parser) toAST(source logger.Source, parts []js_ast.Part, hashbang strin
 		Symbols:                 p.symbols,
 		ExportsRef:              p.exportsRef,
 		ModuleRef:               p.moduleRef,
+		RequireRef:              p.requireRef,
+		FilenameRef:             p.filenameRef,
+		DirnameRef:              p.dirnameRef,
 		WrapperRef:              wrapperRef,
 		Hashbang:                hashbang,
 		Directive:               directive,
