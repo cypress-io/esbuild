@@ -1358,6 +1358,8 @@ type AST struct {
 	HasTopLevelReturn bool
 	UsesExportsRef    bool
 	UsesModuleRef     bool
+	UsesDirnameRef    bool
+	UsesFilenameRef   bool
 
 	// This is a list of ES6 features
 	HasES6Imports bool
@@ -1372,7 +1374,10 @@ type AST struct {
 	CharFreq    *CharFreq
 	ExportsRef  Ref
 	ModuleRef   Ref
+	RequireRef  Ref
 	WrapperRef  Ref
+	DirnameRef  Ref
+	FilenameRef Ref
 
 	// These are stored at the AST level instead of on individual AST nodes so
 	// they can be manipulated efficiently without a full AST traversal
