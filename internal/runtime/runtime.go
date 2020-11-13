@@ -19,7 +19,7 @@ func CanUseES6(unsupportedFeatures compat.JSFeature) bool {
 	return !unsupportedFeatures.Has(compat.Let) && !unsupportedFeatures.Has(compat.Arrow)
 }
 
-func code(isES6 bool) string {
+func code(isES6 bool, createSnapshot bool) string {
 	// Note: The "__rest" function has a for-of loop which requires ES6, but
 	// transforming destructuring to ES5 isn't even supported so it's ok.
 	text := `
@@ -69,7 +69,15 @@ func code(isES6 bool) string {
 				}
 			return target
 		}
+   `
 
+	if createSnapshot {
+		text += `
+		// Repurposing __commonJS value to hold require definitions 
+		export var __commonJS = {}
+	`
+	} else {
+		text += `
 		// Wraps a CommonJS closure and returns a require() function
 		export var __commonJS = (callback, module) => () => {
 			if (!module) {
@@ -78,6 +86,9 @@ func code(isES6 bool) string {
 			}
 			return module.exports
 		}
+	`
+	}
+	text += `
 
 		// Used to implement ES6 exports to CommonJS
 		export var __export = (target, all) => {
@@ -210,7 +221,7 @@ var ES6Source = logger.Source{
 	KeyPath:        logger.Path{Text: "<runtime>"},
 	PrettyPath:     "<runtime>",
 	IdentifierName: "runtime",
-	Contents:       code(true /* isES6 */),
+	Contents:       code(true /* isES6 */, false /* createSnapshot */),
 }
 
 var ES5Source = logger.Source{
@@ -218,7 +229,15 @@ var ES5Source = logger.Source{
 	KeyPath:        logger.Path{Text: "<runtime>"},
 	PrettyPath:     "<runtime>",
 	IdentifierName: "runtime",
-	Contents:       code(false /* isES6 */),
+	Contents:       code(false /* isES6 */, false /* createSnapshot */),
+}
+
+var SnapshotSource = logger.Source{
+	Index:          SourceIndex,
+	KeyPath:        logger.Path{Text: "<runtime>"},
+	PrettyPath:     "<runtime>",
+	IdentifierName: "runtime",
+	Contents:       code(true /* isES6 */, true /* createSnapshot */),
 }
 
 // The TypeScript decorator transform behaves similar to the official
