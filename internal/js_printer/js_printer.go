@@ -3090,6 +3090,9 @@ type Options struct {
 	// This will be present if the input file had a source map. In that case we
 	// want to map all the way back to the original input file(s).
 	InputSourceMap *sourcemap.SourceMap
+
+	// Snapshot related
+	IsRuntime bool
 }
 
 type QuotedSource struct {
