@@ -7271,7 +7271,7 @@ func (p *parser) visitAndAppendStmt(stmts []js_ast.Stmt, stmt js_ast.Stmt) []js_
 		// Relocate "var" statements in nested scopes to the top-level scope when
 		// bundling. This makes it easy to pick out all top-level declarations by
 		// only looking at the array of top-level statements.
-		if p.options.mode == config.ModeBundle && s.Kind == js_ast.LocalVar && p.currentScope != p.moduleScope {
+		if !p.options.CreateSnapshot &&  p.options.mode == config.ModeBundle && s.Kind == js_ast.LocalVar && p.currentScope != p.moduleScope {
 			scope := p.currentScope
 			for !scope.Kind.StopsHoisting() {
 				scope = scope.Parent
