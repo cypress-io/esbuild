@@ -11,12 +11,17 @@ import (
 )
 
 func replaceNone(string) bool { return false }
+func rewriteAll(string) bool { return true }
 
 func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
 	if snapshot.CreateSnapshot {
 		shouldReplaceRequire := snapshot.ShouldReplaceRequire
 		if shouldReplaceRequire == nil {
 			shouldReplaceRequire = replaceNone
+		}
+		shouldRewriteModule := snapshot.ShouldRewriteModule
+		if shouldRewriteModule == nil {
+			shouldRewriteModule = rewriteAll
 		}
 
 		return func(
@@ -25,7 +30,7 @@ func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
 			jsRenamer renamer.Renamer,
 			options js_printer.Options) js_printer.PrintResult {
 			r := snap_renamer.WrapRenamer(&jsRenamer, symbols)
-			if options.IsRuntime {
+			if options.IsRuntime || !shouldRewriteModule(options.FilePath) {
 				return js_printer.Print(tree, symbols, &r, options)
 			} else {
 

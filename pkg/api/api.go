@@ -261,10 +261,12 @@ type StdinOptions struct {
 }
 
 type ShouldReplaceRequirePredicate func(string) bool
+type ShouldRewriteModulePredicate func(string) bool
 
 type SnapshotOptions struct {
 	CreateSnapshot       bool
 	ShouldReplaceRequire ShouldReplaceRequirePredicate
+	ShouldRewriteModule  ShouldRewriteModulePredicate
 	AbsBasedir           string
 }
 
