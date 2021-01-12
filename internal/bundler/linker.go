@@ -3312,6 +3312,7 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 			return c.files[sourceIndex].repr.(*reprJS).ast.WrapperRef
 		},
 		IsRuntime: partRange.sourceIndex == runtime.SourceIndex,
+		FilePath: file.source.PrettyPath,
 	}
 	tree := repr.ast
 	tree.Parts = []js_ast.Part{{Stmts: stmts}}
