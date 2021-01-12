@@ -3093,6 +3093,7 @@ type Options struct {
 
 	// Snapshot related
 	IsRuntime bool
+	FilePath  string
 }
 
 type QuotedSource struct {
