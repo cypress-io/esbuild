@@ -11,7 +11,7 @@ import (
 )
 
 func replaceNone(string) bool { return false }
-func rewriteAll(string) bool { return true }
+func rewriteAll(string) bool  { return true }
 
 func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
 	if snapshot.CreateSnapshot {
@@ -30,11 +30,17 @@ func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
 			jsRenamer renamer.Renamer,
 			options js_printer.Options) js_printer.PrintResult {
 			r := snap_renamer.WrapRenamer(&jsRenamer, symbols)
-			if options.IsRuntime || !shouldRewriteModule(options.FilePath) {
+			if options.IsRuntime {
 				return js_printer.Print(tree, symbols, &r, options)
 			} else {
-
-				return snap_printer.Print(tree, symbols, &r, options, true, shouldReplaceRequire)
+				return snap_printer.Print(
+					tree,
+					symbols,
+					&r,
+					options,
+					true,
+					shouldReplaceRequire,
+					shouldRewriteModule(options.FilePath))
 			}
 		}
 	} else {
