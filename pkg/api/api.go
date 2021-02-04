@@ -77,7 +77,9 @@
 //
 package api
 
-import "github.com/evanw/esbuild/internal/fs"
+import (
+	"github.com/evanw/esbuild/internal/fs"
+)
 
 type SourceMap uint8
 
@@ -261,11 +263,15 @@ type StdinOptions struct {
 }
 
 type ShouldReplaceRequirePredicate func(string) bool
+type ShouldRewriteModulePredicate func(string) bool
 
 type SnapshotOptions struct {
 	CreateSnapshot       bool
 	ShouldReplaceRequire ShouldReplaceRequirePredicate
+	ShouldRewriteModule  ShouldRewriteModulePredicate
 	AbsBasedir           string
+	VerifyPrint          bool
+	PanicOnError         bool
 }
 
 type BuildResult struct {
