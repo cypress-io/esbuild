@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -372,19 +373,45 @@ func parseFile(args parseArgs) {
 					result.resolveResults[importRecordIndex] = resolveResult
 					continue
 				}
+				var resolveResult *resolver.ResolveResult
+				var didLogError bool
 
-				// Run the resolver and log an error if the path couldn't be resolved
-				resolveResult, didLogError := runOnResolvePlugins(
-					args.options.Plugins,
-					args.res,
-					args.log,
-					args.fs,
-					&source,
-					record.Range,
-					record.Path.Text,
-					record.Kind,
-					absResolveDir,
-				)
+				if args.options.CreateSnapshot && strings.HasSuffix(record.Path.Text, ".node") {
+					fullParentFile := result.file.source.KeyPath.Text
+					fullParentDir := filepath.Dir(fullParentFile)
+					fullRecordFile := filepath.Join(fullParentDir, record.Path.Text)
+					relPath, err := filepath.Rel(args.options.SnapshotAbsBaseDir, fullRecordFile)
+					if err != nil {
+						panic(fmt.Sprintf(
+							"Failed to resolve %s from %s.\n%v\n",
+							record.Path.Text, fullRecordFile, err),
+						)
+					}
+					resolveResult = &resolver.ResolveResult{
+						PathPair: resolver.PathPair{
+							Primary: logger.Path{
+								Text: fmt.Sprintf("./%s", relPath),
+								// Setting to 'native' instead of 'file' prevents further rewrites of this
+								// path, see scanAllDependencies
+								Namespace: "native",
+							},
+						},
+					}
+					didLogError = false
+				} else {
+					// Run the resolver and log an error if the path couldn't be resolved
+					resolveResult, didLogError = runOnResolvePlugins(
+						args.options.Plugins,
+						args.res,
+						args.log,
+						args.fs,
+						&source,
+						record.Range,
+						record.Path.Text,
+						record.Kind,
+						absResolveDir,
+					)
+				}
 				cache[record.Path.Text] = resolveResult
 
 				// All "require.resolve()" imports should be external because we don't
