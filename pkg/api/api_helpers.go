@@ -33,7 +33,7 @@ func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
 			if options.IsRuntime {
 				return js_printer.Print(tree, symbols, &r, options)
 			} else {
-				return snap_printer.Print(
+				result := snap_printer.Print(
 					tree,
 					symbols,
 					&r,
@@ -41,6 +41,10 @@ func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
 					true,
 					shouldReplaceRequire,
 					shouldRewriteModule(options.FilePath))
+				if snapshot.VerifyPrint {
+					verifyPrint(&result, options.FilePath, snapshot.PanicOnVerificationFail)
+				}
+				return result
 			}
 		}
 	} else {
