@@ -264,10 +264,12 @@ type ShouldReplaceRequirePredicate func(string) bool
 type ShouldRewriteModulePredicate func(string) bool
 
 type SnapshotOptions struct {
-	CreateSnapshot       bool
-	ShouldReplaceRequire ShouldReplaceRequirePredicate
-	ShouldRewriteModule  ShouldRewriteModulePredicate
-	AbsBasedir           string
+	CreateSnapshot          bool
+	ShouldReplaceRequire    ShouldReplaceRequirePredicate
+	ShouldRewriteModule     ShouldRewriteModulePredicate
+	AbsBasedir              string
+	VerifyPrint             bool
+	PanicOnVerificationFail bool
 }
 
 type BuildResult struct {
