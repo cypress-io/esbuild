@@ -5,18 +5,24 @@ import (
 	"github.com/evanw/esbuild/internal/config"
 	"github.com/evanw/esbuild/internal/js_ast"
 	"github.com/evanw/esbuild/internal/js_printer"
+	"github.com/evanw/esbuild/internal/logger"
 	"github.com/evanw/esbuild/internal/renamer"
 	"github.com/evanw/esbuild/internal/snap_printer"
 	"github.com/evanw/esbuild/internal/snap_renamer"
 )
 
 func replaceNone(string) bool { return false }
+func rewriteAll(string) bool  { return true }
 
-func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
+func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST {
 	if snapshot.CreateSnapshot {
 		shouldReplaceRequire := snapshot.ShouldReplaceRequire
 		if shouldReplaceRequire == nil {
 			shouldReplaceRequire = replaceNone
+		}
+		shouldRewriteModule := snapshot.ShouldRewriteModule
+		if shouldRewriteModule == nil {
+			shouldRewriteModule = rewriteAll
 		}
 
 		return func(
@@ -24,12 +30,28 @@ func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
 			symbols js_ast.SymbolMap,
 			jsRenamer renamer.Renamer,
 			options js_printer.Options) js_printer.PrintResult {
-			r := snap_renamer.WrapRenamer(&jsRenamer, symbols)
+			r := snap_renamer.WrapRenamer(
+				&jsRenamer,
+				symbols,
+				options.FilePath,
+				tree.DirnameRef,
+				tree.FilenameRef,
+				shouldRewriteModule(options.FilePath))
+
 			if options.IsRuntime {
 				return js_printer.Print(tree, symbols, &r, options)
 			} else {
-
-				return snap_printer.Print(tree, symbols, &r, options, true, shouldReplaceRequire)
+				result := snap_printer.Print(
+					tree,
+					symbols,
+					&r,
+					options,
+					true,
+					shouldReplaceRequire)
+				if snapshot.VerifyPrint {
+					verifyPrint(&result, log, options.FilePath, snapshot.PanicOnError)
+				}
+				return result
 			}
 		}
 	} else {

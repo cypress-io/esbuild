@@ -927,7 +927,7 @@ func rebuildImpl(
 		// Stop now if there were errors
 		if !log.HasErrors() {
 			// Compile the bundle
-			results, metafile := bundle.Compile(log, options, createPrintAST(buildOpts.Snapshot))
+			results, metafile := bundle.Compile(log, options, createPrintAST(buildOpts.Snapshot, &log))
 			metafileJSON = metafile
 
 			// Stop now if there were errors
@@ -1303,7 +1303,7 @@ func transformImpl(input string, transformOpts TransformOptions) TransformResult
 		// Stop now if there were errors
 		if !log.HasErrors() {
 			// Compile the bundle
-			results, _ = bundle.Compile(log, options, createPrintAST(transformOpts.Snapshot))
+			results, _ = bundle.Compile(log, options, createPrintAST(transformOpts.Snapshot, &log))
 		}
 	}
 
