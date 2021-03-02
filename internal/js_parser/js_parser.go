@@ -11126,8 +11126,8 @@ func (p *parser) prepareForVisitPass() {
 		p.moduleRef = p.newSymbol(js_ast.SymbolHoisted, "module")
 	}
 	if p.options.CreateSnapshot {
-		p.filenameRef = p.newSymbol(js_ast.SymbolHoisted, "__filename")
-		p.dirnameRef = p.newSymbol(js_ast.SymbolHoisted, "__dirname")
+		p.filenameRef = p.declareCommonJSSymbol(js_ast.SymbolHoisted, "__filename")
+		p.dirnameRef = p.declareCommonJSSymbol(js_ast.SymbolHoisted, "__dirname")
 	}
 
 	// Convert "import.meta" to a variable if it's not supported in the output format
@@ -11413,6 +11413,8 @@ func (p *parser) toAST(source logger.Source, parts []js_ast.Part, hashbang strin
 		HasTopLevelReturn: p.hasTopLevelReturn,
 		UsesExportsRef:    p.symbols[p.exportsRef.InnerIndex].UseCountEstimate > 0,
 		UsesModuleRef:     p.symbols[p.moduleRef.InnerIndex].UseCountEstimate > 0,
+		UsesDirnameRef:    p.symbols[p.dirnameRef.InnerIndex].UseCountEstimate > 0,
+		UsesFilenameRef:   p.symbols[p.filenameRef.InnerIndex].UseCountEstimate > 0,
 
 		// ES6 features
 		HasES6Imports: p.hasES6ImportSyntax,
