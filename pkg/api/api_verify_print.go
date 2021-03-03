@@ -69,12 +69,19 @@ func verifyPrint(result *snap_printer.PrintResult, filePath string, shouldPanic 
 	}
 }
 
-func reportError(filePath string, error string, shouldPanic bool) {
+func reportError(log *logger.Log, filePath string, error string, shouldPanic bool) {
+	loc := logger.Loc{Start: 0}
+	path := logger.Path{Text: filePath, Namespace: "file"}
+	source := logger.Source{
+		Index:          0,
+		KeyPath:        path,
+		PrettyPath:     filePath,
+		IdentifierName: filePath, Contents: ""}
+
 	s := fmt.Sprintf("Encountered an error inside '%s'\n  %s", filePath, error)
+	log.AddError(&source, loc, s)
 
 	if shouldPanic {
 		panic(s)
-	} else {
-		fmt.Fprintln(os.Stderr, s)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/evanw/esbuild/internal/config"
 	"github.com/evanw/esbuild/internal/js_ast"
 	"github.com/evanw/esbuild/internal/js_printer"
+	"github.com/evanw/esbuild/internal/logger"
 	"github.com/evanw/esbuild/internal/renamer"
 	"github.com/evanw/esbuild/internal/snap_printer"
 	"github.com/evanw/esbuild/internal/snap_renamer"
@@ -23,7 +24,7 @@ func emptyPrintResult() js_printer.PrintResult {
 func replaceNone(string) bool { return false }
 func rewriteAll(string) bool  { return true }
 
-func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
+func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST {
 	if snapshot.CreateSnapshot {
 		shouldReplaceRequire := snapshot.ShouldReplaceRequire
 		if shouldReplaceRequire == nil {
@@ -48,7 +49,7 @@ func createPrintAST(snapshot *SnapshotOptions) bundler.PrintAST {
 					// don't parse it, but report the error instead and return early
 					err, reject := snapshot.ShouldRejectAst(&tree)
 					if reject {
-						reportError(options.FilePath, err, snapshot.PanicOnError)
+						reportError(log, options.FilePath, err, snapshot.PanicOnError)
 						return emptyPrintResult()
 					}
 				}
