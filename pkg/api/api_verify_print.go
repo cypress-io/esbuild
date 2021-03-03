@@ -68,3 +68,13 @@ func verifyPrint(result *snap_printer.PrintResult, filePath string, shouldPanic 
 		fmt.Fprintln(os.Stderr, s)
 	}
 }
+
+func reportError(filePath string, error string, shouldPanic bool) {
+	s := fmt.Sprintf("Encountered an error inside '%s'\n  %s", filePath, error)
+
+	if shouldPanic {
+		panic(s)
+	} else {
+		fmt.Fprintln(os.Stderr, s)
+	}
+}
