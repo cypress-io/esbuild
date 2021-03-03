@@ -11,16 +11,6 @@ import (
 	"github.com/evanw/esbuild/internal/snap_renamer"
 )
 
-func emptyPrintResult() js_printer.PrintResult {
-	return js_printer.PrintResult{
-		JS:                       make([]byte, 0),
-		ExtractedComments:        make(map[string]bool),
-		FirstDeclByteOffset:      0,
-		FirstDeclSourceMapOffset: 0,
-	}
-
-}
-
 func replaceNone(string) bool { return false }
 func rewriteAll(string) bool  { return true }
 
@@ -44,15 +34,6 @@ func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST
 			if options.IsRuntime {
 				return js_printer.Print(tree, symbols, &r, options)
 			} else {
-				if snapshot.ShouldRejectAst != nil {
-					// if we can see from the AST that this file cannot be included in a snapshot then we
-					// don't parse it, but report the error instead and return early
-					err, reject := snapshot.ShouldRejectAst(&tree)
-					if reject {
-						reportError(log, options.FilePath, err, snapshot.PanicOnError)
-						return emptyPrintResult()
-					}
-				}
 				result := snap_printer.Print(
 					tree,
 					symbols,
@@ -63,6 +44,14 @@ func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST
 					shouldRewriteModule(options.FilePath))
 				if snapshot.VerifyPrint {
 					verifyPrint(&result, options.FilePath, snapshot.PanicOnError)
+				}
+				if snapshot.ShouldRejectAst != nil {
+					// if we can see from the AST that this file cannot be included in a snapshot then we
+					// don't parse it, but report the error instead and return early
+					err, errStart, reject := snapshot.ShouldRejectAst(&tree, &result.JS)
+					if reject {
+						reportWarning(&result, log, options.FilePath, err, errStart, snapshot.PanicOnError)
+					}
 				}
 				return result
 			}

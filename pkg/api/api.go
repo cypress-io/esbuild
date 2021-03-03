@@ -265,7 +265,7 @@ type StdinOptions struct {
 
 type ShouldReplaceRequirePredicate func(string) bool
 type ShouldRewriteModulePredicate func(string) bool
-type ShouldRejectAstPredicate func(*js_ast.AST) (string, bool)
+type ShouldRejectAstPredicate func(*js_ast.AST, *[]byte) (string, int32, bool)
 
 type SnapshotOptions struct {
 	CreateSnapshot       bool
