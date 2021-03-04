@@ -43,7 +43,7 @@ func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST
 					shouldReplaceRequire,
 					shouldRewriteModule(options.FilePath))
 				if snapshot.VerifyPrint {
-					verifyPrint(&result, options.FilePath, snapshot.PanicOnError)
+					verifyPrint(&result, log, options.FilePath, snapshot.PanicOnError)
 				}
 				if snapshot.ShouldRejectAst != nil {
 					// if we can see from the AST that this file cannot be included in a snapshot then we

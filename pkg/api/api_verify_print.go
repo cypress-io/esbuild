@@ -3,9 +3,7 @@ package api
 import (
 	"fmt"
 	"os"
-	"sort"
 	"strings"
-	"sync"
 
 	"github.com/evanw/esbuild/internal/config"
 	"github.com/evanw/esbuild/internal/js_ast"
@@ -14,37 +12,30 @@ import (
 	"github.com/evanw/esbuild/internal/snap_printer"
 )
 
-func VerifyLog() (logger.Log, *logger.SortableMsgs) {
-	var msgs logger.SortableMsgs
-	var mutex sync.Mutex
-	var hasErrors bool
-
-	log := logger.Log{
+func ErrorToWarningLog(log *logger.Log) logger.Log {
+	forgivingLog := logger.Log{
 		AddMsg: func(msg logger.Msg) {
-			mutex.Lock()
-			defer mutex.Unlock()
 			if msg.Kind == logger.Error {
-				hasErrors = true
+				msg.Data.Text = fmt.Sprintf("[SNAPSHOT_REWRITE_FAILURE] %s", msg.Data.Text)
+				msg.Kind = logger.Warning
 			}
-			msgs = append(msgs, msg)
+			log.AddMsg(msg)
 		},
 		HasErrors: func() bool {
-			mutex.Lock()
-			defer mutex.Unlock()
-			return hasErrors
+			return log.HasErrors()
 		},
 		Done: func() []logger.Msg {
-			mutex.Lock()
-			defer mutex.Unlock()
-			sort.Stable(msgs)
-			return msgs
+			return log.Done()
 		},
 	}
-	return log, &msgs
+	return forgivingLog
 }
 
-func verifyPrint(result *snap_printer.PrintResult, filePath string, shouldPanic bool) {
-	log, msgs := VerifyLog()
+func verifyPrint(result *snap_printer.PrintResult, log *logger.Log, filePath string, shouldPanic bool) {
+	// Cannot use printer logger since that would add any issues as error messages which causes the
+	// entire process to fail. What we want instead is to provide an indicator of what error
+	// occurred in which file so that the caller can process it.
+	vlog := ErrorToWarningLog(log)
 	path := logger.Path{Text: filePath, Namespace: "file"}
 	source := logger.Source{
 		Index:          0,
@@ -53,23 +44,7 @@ func verifyPrint(result *snap_printer.PrintResult, filePath string, shouldPanic 
 		Contents:       string(result.JS),
 		IdentifierName: filePath,
 	}
-	js_parser.Parse(log, source, js_parser.OptionsFromConfig(&config.Options{}))
-	if !log.HasErrors() {
-		return
-	}
-	s := "\nVerification failed!"
-	for _, msg := range *msgs {
-		loc := msg.Data.Location
-		s += fmt.Sprintf("\n----------------------------\n")
-		s += fmt.Sprintf("%s\n\n", msg.Data.Text)
-		s += fmt.Sprintf("at %s:%d:%d\n", loc.File, loc.Line, loc.Column)
-		s += fmt.Sprintf("%s", loc.LineText)
-	}
-	if shouldPanic {
-		panic(s)
-	} else {
-		fmt.Fprintln(os.Stderr, s)
-	}
+	js_parser.Parse(vlog, source, js_parser.OptionsFromConfig(&config.Options{}))
 }
 
 func reportWarning(
