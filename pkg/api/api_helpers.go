@@ -30,7 +30,8 @@ func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST
 			symbols js_ast.SymbolMap,
 			jsRenamer renamer.Renamer,
 			options js_printer.Options) js_printer.PrintResult {
-			r := snap_renamer.WrapRenamer(&jsRenamer, symbols)
+			r := snap_renamer.WrapRenamer(&jsRenamer, symbols, shouldRewriteModule(options.FilePath))
+
 			if options.IsRuntime {
 				return js_printer.Print(tree, symbols, &r, options)
 			} else {
@@ -40,8 +41,7 @@ func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST
 					&r,
 					options,
 					true,
-					shouldReplaceRequire,
-					shouldRewriteModule(options.FilePath))
+					shouldReplaceRequire)
 				if snapshot.VerifyPrint {
 					verifyPrint(&result, log, options.FilePath, snapshot.PanicOnError)
 				}
