@@ -50,7 +50,7 @@ func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST
 					// don't parse it, but report the error instead and return early
 					err, errStart, reject := snapshot.ShouldRejectAst(&tree, &result.JS)
 					if reject {
-						reportWarning(&result, log, options.FilePath, err, errStart, snapshot.PanicOnError)
+						reportWarning(&result, log, options.FilePath, err, errStart)
 					}
 				}
 				return result

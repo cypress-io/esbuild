@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/evanw/esbuild/internal/config"
@@ -12,7 +11,7 @@ import (
 	"github.com/evanw/esbuild/internal/snap_printer"
 )
 
-func ErrorToWarningLog(log *logger.Log) logger.Log {
+func ErrorToSnapshotRewriteFailureWarningLogger(log *logger.Log) logger.Log {
 	forgivingLog := logger.Log{
 		AddMsg: func(msg logger.Msg) {
 			if msg.Kind == logger.Error {
@@ -35,7 +34,7 @@ func verifyPrint(result *snap_printer.PrintResult, log *logger.Log, filePath str
 	// Cannot use printer logger since that would add any issues as error messages which causes the
 	// entire process to fail. What we want instead is to provide an indicator of what error
 	// occurred in which file so that the caller can process it.
-	vlog := ErrorToWarningLog(log)
+	vlog := ErrorToSnapshotRewriteFailureWarningLogger(log)
 	path := logger.Path{Text: filePath, Namespace: "file"}
 	source := logger.Source{
 		Index:          0,
@@ -52,8 +51,7 @@ func reportWarning(
 	log *logger.Log,
 	filePath string,
 	error string,
-	errorStart int32,
-	shouldPanic bool) {
+	errorStart int32) {
 	loc := logger.Loc{Start: errorStart}
 	path := logger.Path{Text: filePath, Namespace: "file"}
 	source := logger.Source{
@@ -63,15 +61,9 @@ func reportWarning(
 		Contents:       string(result.JS),
 		IdentifierName: filePath,
 	}
-
+	vlog := ErrorToSnapshotRewriteFailureWarningLogger(log)
 	s := fmt.Sprintf("Encountered a problem inside '%s'\n  %s", filePath, error)
-	log.AddWarning(&source, loc, s)
-
-	if shouldPanic {
-		panic(s)
-	} else {
-		fmt.Fprintln(os.Stderr, s)
-	}
+	vlog.AddError(&source, loc, s)
 }
 
 // Tries to find the needle in the code and normalizes the result to `0` if not found
