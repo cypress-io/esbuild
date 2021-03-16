@@ -11,11 +11,19 @@ import (
 	"github.com/evanw/esbuild/internal/snap_printer"
 )
 
-func ErrorToSnapshotRewriteFailureWarningLogger(log *logger.Log) logger.Log {
+// Denotes that rewriting the code causes problems and thus that particular module
+// should not be rewritten in order to obtain a valid bundle.
+const SNAPSHOT_REWRITE_FAILURE = "[SNAPSHOT_REWRITE_FAILURE]"
+
+// Denotes that a module needs to be deferred, i.e. if it accesses constants like
+// __dirname that it shouldn't.
+const SNAPSHOT_CACHE_FAILURE = "[SNAPSHOT_CACHE_FAILURE]"
+
+func ErrorToWarningLogger(log *logger.Log, failureType string) logger.Log {
 	forgivingLog := logger.Log{
 		AddMsg: func(msg logger.Msg) {
 			if msg.Kind == logger.Error {
-				msg.Data.Text = fmt.Sprintf("[SNAPSHOT_REWRITE_FAILURE] %s", msg.Data.Text)
+				msg.Data.Text = fmt.Sprintf("%s %s", failureType, msg.Data.Text)
 				msg.Kind = logger.Warning
 			}
 			log.AddMsg(msg)
@@ -34,7 +42,7 @@ func verifyPrint(result *snap_printer.PrintResult, log *logger.Log, filePath str
 	// Cannot use printer logger since that would add any issues as error messages which causes the
 	// entire process to fail. What we want instead is to provide an indicator of what error
 	// occurred in which file so that the caller can process it.
-	vlog := ErrorToSnapshotRewriteFailureWarningLogger(log)
+	vlog := ErrorToWarningLogger(log, SNAPSHOT_REWRITE_FAILURE)
 	path := logger.Path{Text: filePath, Namespace: "file"}
 	source := logger.Source{
 		Index:          0,
@@ -61,7 +69,7 @@ func reportWarning(
 		Contents:       string(result.JS),
 		IdentifierName: filePath,
 	}
-	vlog := ErrorToSnapshotRewriteFailureWarningLogger(log)
+	vlog := ErrorToWarningLogger(log, SNAPSHOT_CACHE_FAILURE)
 	s := fmt.Sprintf("Encountered a problem inside '%s'\n  %s", filePath, error)
 	vlog.AddError(&source, loc, s)
 }
