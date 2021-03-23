@@ -30,7 +30,13 @@ func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST
 			symbols js_ast.SymbolMap,
 			jsRenamer renamer.Renamer,
 			options js_printer.Options) js_printer.PrintResult {
-			r := snap_renamer.WrapRenamer(&jsRenamer, symbols, options.FilePath, shouldRewriteModule(options.FilePath))
+			r := snap_renamer.WrapRenamer(
+				&jsRenamer,
+				symbols,
+				options.FilePath,
+				tree.DirnameRef,
+				tree.FilenameRef,
+				shouldRewriteModule(options.FilePath))
 
 			if options.IsRuntime {
 				return js_printer.Print(tree, symbols, &r, options)
@@ -44,14 +50,6 @@ func createPrintAST(snapshot *SnapshotOptions, log *logger.Log) bundler.PrintAST
 					shouldReplaceRequire)
 				if snapshot.VerifyPrint {
 					verifyPrint(&result, log, options.FilePath, snapshot.PanicOnError)
-				}
-				if snapshot.ShouldRejectAst != nil {
-					// if we can see from the AST that this file cannot be included in a snapshot then we
-					// don't parse it, but report the error instead and return early
-					err, errStart, reject := snapshot.ShouldRejectAst(&tree, &result.JS)
-					if reject {
-						reportWarning(&result, log, options.FilePath, err, errStart)
-					}
 				}
 				return result
 			}

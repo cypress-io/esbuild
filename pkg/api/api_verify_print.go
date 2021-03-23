@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/evanw/esbuild/internal/config"
-	"github.com/evanw/esbuild/internal/js_ast"
 	"github.com/evanw/esbuild/internal/js_parser"
 	"github.com/evanw/esbuild/internal/logger"
 	"github.com/evanw/esbuild/internal/snap_printer"
@@ -89,20 +88,4 @@ func tryFindLocInside(js *[]byte, needle string, skip int) int32 {
 		offset = offset + loc + needleLen
 	}
 	return int32(offset + loc - needleLen)
-}
-
-func RejectDirnameAccess(tree *js_ast.AST, js *[]byte) (string, int32, bool) {
-	if tree.UsesDirnameRef {
-		loc := tryFindLocInside(js, "__dirname", 1)
-		return "Forbidden use of __dirname", loc, true
-	}
-	return "", 0, false
-}
-
-func RejectFilenameAccess(tree *js_ast.AST, js *[]byte) (string, int32, bool) {
-	if tree.UsesFilenameRef {
-		loc := tryFindLocInside(js, "__filename", 1)
-		return "Forbidden use of __filename", loc, true
-	}
-	return "", 0, false
 }

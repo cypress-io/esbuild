@@ -79,7 +79,6 @@ package api
 
 import (
 	"github.com/evanw/esbuild/internal/fs"
-	"github.com/evanw/esbuild/internal/js_ast"
 )
 
 type SourceMap uint8
@@ -265,13 +264,11 @@ type StdinOptions struct {
 
 type ShouldReplaceRequirePredicate func(string) bool
 type ShouldRewriteModulePredicate func(string) bool
-type ShouldRejectAstPredicate func(*js_ast.AST, *[]byte) (string, int32, bool)
 
 type SnapshotOptions struct {
 	CreateSnapshot       bool
 	ShouldReplaceRequire ShouldReplaceRequirePredicate
 	ShouldRewriteModule  ShouldRewriteModulePredicate
-	ShouldRejectAst      ShouldRejectAstPredicate
 	AbsBasedir           string
 	VerifyPrint          bool
 	PanicOnError         bool
