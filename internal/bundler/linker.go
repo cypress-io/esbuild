@@ -3618,7 +3618,7 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 			args := []js_ast.Arg{}
 
 			if c.options.CreateSnapshot {
-				stmts = append(stmtList.es6StmtsForCJSWrap, requireDefinitionStmt(&r, repr, stmts, commonJSRef))
+				stmts = append(stmtList.outsideWrapperPrefix, requireDefinitionStmt(&r, repr, stmts, commonJSRef))
 			} else {
 				// Only include the arguments that are actually used
 				if repr.ast.UsesExportsRef || repr.ast.UsesModuleRef {
