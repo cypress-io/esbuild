@@ -3627,29 +3627,29 @@ func (c *linkerContext) generateCodeForFileInChunkJS(
 						args = append(args, js_ast.Arg{Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.ModuleRef}}})
 					}
 				}
-			}
 
-			// "__commonJS((exports, module) => { ... })"
-			var value js_ast.Expr
-			if c.options.UnsupportedJSFeatures.Has(compat.Arrow) {
-				value = js_ast.Expr{Data: &js_ast.ECall{
-					Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},
-					Args:   []js_ast.Expr{{Data: &js_ast.EFunction{Fn: js_ast.Fn{Args: args, Body: js_ast.FnBody{Stmts: stmts}}}}},
-				}}
-			} else {
-				value = js_ast.Expr{Data: &js_ast.ECall{
-					Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},
-					Args:   []js_ast.Expr{{Data: &js_ast.EArrow{Args: args, Body: js_ast.FnBody{Stmts: stmts}}}},
-				}}
-			}
+				// "__commonJS((exports, module) => { ... })"
+				var value js_ast.Expr
+				if c.options.UnsupportedJSFeatures.Has(compat.Arrow) {
+					value = js_ast.Expr{Data: &js_ast.ECall{
+						Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},
+						Args:   []js_ast.Expr{{Data: &js_ast.EFunction{Fn: js_ast.Fn{Args: args, Body: js_ast.FnBody{Stmts: stmts}}}}},
+					}}
+				} else {
+					value = js_ast.Expr{Data: &js_ast.ECall{
+						Target: js_ast.Expr{Data: &js_ast.EIdentifier{Ref: commonJSRef}},
+						Args:   []js_ast.Expr{{Data: &js_ast.EArrow{Args: args, Body: js_ast.FnBody{Stmts: stmts}}}},
+					}}
+				}
 
-			// "var require_foo = __commonJS((exports, module) => { ... });"
-			stmts = append(stmtList.outsideWrapperPrefix, js_ast.Stmt{Data: &js_ast.SLocal{
-				Decls: []js_ast.Decl{{
-					Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.WrapperRef}},
-					Value:   &value,
-				}},
-			}})
+				// "var require_foo = __commonJS((exports, module) => { ... });"
+				stmts = append(stmtList.outsideWrapperPrefix, js_ast.Stmt{Data: &js_ast.SLocal{
+					Decls: []js_ast.Decl{{
+						Binding: js_ast.Binding{Data: &js_ast.BIdentifier{Ref: repr.ast.WrapperRef}},
+						Value:   &value,
+					}},
+				}})
+			}
 		case wrapESM:
 			// The wrapper only needs to be "async" if there is a transitive async
 			// dependency. For correctness, we must not use "async" if the module
