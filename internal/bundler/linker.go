@@ -1363,6 +1363,12 @@ func (c *linkerContext) scanImportsAndExports() {
 				c.options.OutputFormat == config.FormatIIFE || c.options.OutputFormat == config.FormatESModule) {
 				repr.meta.wrap = wrapCJS
 			}
+			// When creating a snapshot we need to wrap any module except the runtime
+			// itself, regardless if it has exports or not. This includes the entry
+			// point
+			if c.options.CreateSnapshot && file.source.Index != runtime.SourceIndex {
+				repr.meta.wrap = wrapCJS
+			}
 		}
 	}
 
