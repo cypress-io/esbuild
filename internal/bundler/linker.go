@@ -2741,7 +2741,7 @@ func (c *linkerContext) includePart(sourceIndex uint32, partIndex uint32, entryP
 
 			// This is an ES6 import of a CommonJS module, so it needs the
 			// "__toModule" wrapper as long as it's not a bare "require()"
-			if record.Kind != ast.ImportRequire && otherRepr.ast.ExportsKind == js_ast.ExportsCommonJS {
+			if !c.options.CreateSnapshot && record.Kind != ast.ImportRequire && otherRepr.ast.ExportsKind == js_ast.ExportsCommonJS {
 				record.WrapWithToModule = true
 				toModuleUses++
 			}
