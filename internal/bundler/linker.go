@@ -4334,7 +4334,7 @@ func (c *linkerContext) generateChunkJS(chunks []chunkInfo, chunkIndex int, chun
 
 	// Generate the exports for the entry point, if there are any
 	var entryPointTail compileResultJS
-	if chunk.isEntryPoint {
+	if chunk.isEntryPoint && !c.options.CreateSnapshot {
 		entryPointTail = c.generateEntryPointTailJS(
 			r,
 			toModuleRef,
