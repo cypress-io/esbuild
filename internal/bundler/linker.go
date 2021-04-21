@@ -1326,7 +1326,7 @@ func (c *linkerContext) scanImportsAndExports() {
 
 				case ast.ImportRequire:
 					// Files that are imported with require() must be CommonJS modules
-					if otherRepr.ast.ExportsKind == js_ast.ExportsESM {
+					if !c.options.CreateSnapshot && otherRepr.ast.ExportsKind == js_ast.ExportsESM {
 						otherRepr.meta.wrap = wrapESM
 					} else {
 						otherRepr.meta.wrap = wrapCJS
@@ -1345,7 +1345,7 @@ func (c *linkerContext) scanImportsAndExports() {
 					} else {
 						// If we're not splitting, then import() is just a require() that
 						// returns a promise, so the imported file must be a CommonJS module
-						if otherRepr.ast.ExportsKind == js_ast.ExportsESM {
+						if !c.options.CreateSnapshot && otherRepr.ast.ExportsKind == js_ast.ExportsESM {
 							otherRepr.meta.wrap = wrapESM
 						} else {
 							otherRepr.meta.wrap = wrapCJS
