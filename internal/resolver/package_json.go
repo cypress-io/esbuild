@@ -152,7 +152,15 @@ func (r resolverQuery) parsePackageJSON(path string) *packageJSON {
 					packageJSON.absMainFields = make(map[string]string)
 				}
 				if absPath := toAbsPath(r.fs.Join(path, main), jsonSource.RangeOfString(mainJSON.Loc)); absPath != nil {
-					packageJSON.absMainFields[field] = *absPath
+					// HACK: Cypress related, this is to mitigate the hacky version dance going on inside
+					// https://github.com/bevry/safefs/blob/11c7818dc3b3968e080003e0e960ae13e487dd1a/es6guardian.js
+					// It prevents to statically determine which module will actually be loaded and thus breaks things.
+					// Remove once that dep has been upgraded or esbuild has a mechanism to make this work.
+					if strings.HasSuffix(*absPath, "node_modules/safefs/es6guardian.js") {
+						packageJSON.absMainFields[field] = strings.Replace(*absPath, "es6guardian.js", "es5/lib/safefs.js", 1)
+					} else {
+						packageJSON.absMainFields[field] = *absPath
+					}
 				}
 			}
 		}
@@ -261,12 +269,14 @@ func (r resolverQuery) parsePackageJSON(path string) *packageJSON {
 	}
 
 	// Read the "exports" map
-	if exportsJSON, exportsRange, ok := getProperty(json, "exports"); ok {
-		if exportsMap := parseExportsMap(jsonSource, r.log, exportsJSON); exportsMap != nil {
-			exportsMap.exportsRange = jsonSource.RangeOfString(exportsRange)
-			packageJSON.exportsMap = exportsMap
+	/*
+		if exportsJSON, exportsRange, ok := getProperty(json, "exports"); ok {
+			if exportsMap := parseExportsMap(jsonSource, r.log, exportsJSON); exportsMap != nil {
+				exportsMap.exportsRange = jsonSource.RangeOfString(exportsRange)
+				packageJSON.exportsMap = exportsMap
+			}
 		}
-	}
+	*/
 
 	return packageJSON
 }
