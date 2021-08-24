@@ -417,7 +417,7 @@ __commonJS["./entry.js"] = function(exports, module2, __filename, __dirname, req
   function toBeResolved(prefix) {
     return prefix + "foo";
   }
-  require.resolve(toBeResolved("./"), (typeof __filename2 !== 'undefined' ? __filename2 : __filename), (typeof __dirname2 !== 'undefined' ? __dirname2 : __dirname);
+  require.resolve(toBeResolved("./"), (typeof __filename2 !== 'undefined' ? __filename2 : __filename), (typeof __dirname2 !== 'undefined' ? __dirname2 : __dirname));
 };`,
 			},
 		},
