@@ -130,7 +130,11 @@ func SnapCmd(processArgs ProcessCmdArgs) {
 	result := processArgs(&cmdArgs)
 	_, prettyPrint := os.LookupEnv("SNAPSHOT_PRETTY_PRINT_CONTENTS")
 	if prettyPrint {
-		fmt.Printf("outfile:\n%s", string(result.OutputFiles[0].Contents))
+		if len(result.OutputFiles) > 1 {
+			fmt.Printf("outfile:\n%s", string(result.OutputFiles[1].Contents))
+		} else {
+			fmt.Printf("outfile:\n%s", string(result.OutputFiles[0].Contents))
+		}
 		fmt.Printf("metafile:\n%s", result.Metafile)
 	} else {
 		json := resultToJSON(result, cmdArgs.Write)
