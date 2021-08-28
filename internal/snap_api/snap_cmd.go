@@ -90,14 +90,6 @@ func trimPathPrefix(paths []string) []string {
 	return replaced
 }
 
-func extractRewriteDefs(paths []string) []string {
-	var norewrites []string
-	for _, p := range paths {
-		norewrites = append(norewrites, p)
-	}
-	return trimPathPrefix(norewrites)
-}
-
 func SnapCmd(processArgs ProcessCmdArgs) {
 	osArgs := os.Args[1:]
 	if len(osArgs) != 1 && logger.GetTerminalInfo(os.Stdin).IsTTY {
@@ -109,6 +101,9 @@ func SnapCmd(processArgs ProcessCmdArgs) {
 	jsonBytes, _ := ioutil.ReadFile(filename)
 	var cmdArgs SnapCmdArgs
 	json.Unmarshal(jsonBytes, &cmdArgs)
+	if cmdArgs.Norewrite != nil {
+		cmdArgs.Norewrite = trimPathPrefix(cmdArgs.Norewrite)
+	}
 	fmt.Fprintln(os.Stderr, cmdArgs.toString())
 
 	// Print help text when there are missing arguments
@@ -130,7 +125,11 @@ func SnapCmd(processArgs ProcessCmdArgs) {
 	result := processArgs(&cmdArgs)
 	_, prettyPrint := os.LookupEnv("SNAPSHOT_PRETTY_PRINT_CONTENTS")
 	if prettyPrint {
-		fmt.Printf("outfile:\n%s", string(result.OutputFiles[0].Contents))
+		if len(result.OutputFiles) > 1 {
+			fmt.Printf("outfile:\n%s", string(result.OutputFiles[1].Contents))
+		} else {
+			fmt.Printf("outfile:\n%s", string(result.OutputFiles[0].Contents))
+		}
 		fmt.Printf("metafile:\n%s", result.Metafile)
 	} else {
 		json := resultToJSON(result, cmdArgs.Write)
