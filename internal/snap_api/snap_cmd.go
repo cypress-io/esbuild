@@ -82,9 +82,10 @@ func trimQuotes(paths []string) []string {
 
 var rx = regexp.MustCompile(`^[.]?[.]?[/]`)
 
-func trimPathPrefix(paths []string) []string {
+func trimPathPrefixAndNormalizeSlashes(paths []string) []string {
 	replaced := make([]string, len(paths))
 	for i, p := range paths {
+		p = strings.ReplaceAll(p, "\\", "/")
 		replaced[i] = rx.ReplaceAllString(p, "")
 	}
 	return replaced
@@ -102,7 +103,7 @@ func SnapCmd(processArgs ProcessCmdArgs) {
 	var cmdArgs SnapCmdArgs
 	json.Unmarshal(jsonBytes, &cmdArgs)
 	if cmdArgs.Norewrite != nil {
-		cmdArgs.Norewrite = trimPathPrefix(cmdArgs.Norewrite)
+		cmdArgs.Norewrite = trimPathPrefixAndNormalizeSlashes(cmdArgs.Norewrite)
 	}
 	fmt.Fprintln(os.Stderr, cmdArgs.toString())
 
