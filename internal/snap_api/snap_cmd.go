@@ -26,7 +26,7 @@ Config is a JSON file with the following properties:
                          which are also automatically deferred
   metafile   (bool)      When true metadata about the build is written to a JSON file
   doctor     (bool)      When true stricter validations are performed to detect problematic code
-  sourcemap  (bool)      When true sourcemaps will be generated and included with the second outfile
+  sourcemap  (string)    When provided sourcemaps will be generated and output to that file 
 
 Examples:
   snapshot snapshot_config.json 
@@ -41,7 +41,7 @@ type SnapCmdArgs struct {
 	Deferred  []string
 	Norewrite []string
 	Doctor    bool
-	Sourcemap bool
+	Sourcemap string
 }
 
 func (args *SnapCmdArgs) toString() string {
@@ -53,7 +53,7 @@ func (args *SnapCmdArgs) toString() string {
 	Norewrite:  '%s'
 	Metafile:   '%t',
 	Doctor:     '%t',
-	Sourcemap:  '%t',
+	Sourcemap:  '%s',
 }`,
 		args.Entryfile,
 		args.Outfile,
@@ -133,6 +133,7 @@ func SnapCmd(processArgs ProcessCmdArgs) {
 		}
 		fmt.Printf("metafile:\n%s", result.Metafile)
 	} else {
+		maybeWriteSourcemapFile(result, cmdArgs.Sourcemap)
 		json := resultToJSON(result, cmdArgs.Write)
 		fmt.Fprintln(os.Stdout, json)
 	}

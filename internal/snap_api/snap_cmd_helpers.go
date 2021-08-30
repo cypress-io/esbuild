@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/evanw/esbuild/pkg/api"
@@ -72,17 +73,29 @@ func outputFilesToJSON(result api.BuildResult) string {
       "contents": "%v"
     }`, filepath.ToSlash(p), hex.EncodeToString(result.OutputFiles[bundleIdx].Contents))
 	if includedSourceMap {
-		sourcemapIdx := 0
-		p := result.OutputFiles[sourcemapIdx].Path
+		p := result.OutputFiles[0].Path
 		outputFiles += fmt.Sprintf(`
     ,
     { 
-      "path": "<%s>",
-      "contents": "%v"
-    }`, filepath.ToSlash(p), hex.EncodeToString(result.OutputFiles[sourcemapIdx].Contents))
+      "path": "<%s>"
+    }`, filepath.ToSlash(p))
 	}
 	outputFiles += "\n  ]"
 	return outputFiles
+}
+
+func maybeWriteSourcemapFile(result api.BuildResult, sourcemapFile string) {
+	includedSourceMap := len(result.OutputFiles) == 2
+	if !includedSourceMap {
+		return
+	}
+
+	file := result.OutputFiles[0]
+	err := os.WriteFile(sourcemapFile, file.Contents, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write sourcemap file!\n%s", err.Error())
+	}
+
 }
 
 // NOTE: esbuild itself doesn't send JSON across the wire like this. Instead it sends binary
@@ -91,7 +104,7 @@ func outputFilesToJSON(result api.BuildResult) string {
 /*
  *	interface OutputFile {
  *	  path: string;
- *	  contents: Uint8Array; // "text" as bytes (we actually send a 'hex' string)
+ *	  contents?: Uint8Array; // "text" as bytes only for bundle (we actually send a 'hex' string)
  *	  text: string; // "contents" as text  (we don't include that as it transmits data duplicated in contents)
  *	}
  *  interface BuildResult {
