@@ -59,7 +59,7 @@ func nodeJavaScript(args *snap_api.SnapCmdArgs) api.BuildResult {
 	}
 
 	sourcemap := api.SourceMapNone
-	if args.Sourcemap {
+	if args.Sourcemap != "" {
 		sourcemap = api.SourceMapExternal
 	}
 
