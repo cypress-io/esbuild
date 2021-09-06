@@ -39,7 +39,7 @@ func CreateShouldReplaceRequire(
 		// We could already store them as such which would be more efficient, but after measuring
 		// I found zero perf overhead on OSX. Nothing gets replaced in this case so the only affected
 		// OS would be windows, but should be neglible there as well.
-		mdl = strings.ReplaceAll(mdl, "\\", "/")
-		return isExternal(mdl) || IsNative(mdl) || replaceRequire(mdl) || !rewriteModule(mdl)
+		rewriteMdl := strings.ReplaceAll(mdl, "\\", "/")
+		return isExternal(mdl) || IsNative(mdl) || replaceRequire(mdl) || !rewriteModule(rewriteMdl)
 	}
 }
