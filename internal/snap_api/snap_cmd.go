@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -85,7 +86,7 @@ var rx = regexp.MustCompile(`^[.]?[.]?[/]`)
 func trimPathPrefixAndNormalizeSlashes(paths []string) []string {
 	replaced := make([]string, len(paths))
 	for i, p := range paths {
-		p = strings.ReplaceAll(p, "\\", "/")
+		p = filepath.ToSlash(p)
 		replaced[i] = rx.ReplaceAllString(p, "")
 	}
 	return replaced
