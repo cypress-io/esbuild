@@ -1652,6 +1652,12 @@ func (s *scanner) processScannedFiles() []file {
 			continue
 		}
 
+		if s.options.CreateSnapshot {
+			// Normalize file paths to forward slashes to avoid cache/deferred/norewrite lookups on Windows
+			result.file.source.KeyPath.Text = filepath.ToSlash(result.file.source.KeyPath.Text)
+			result.file.source.PrettyPath = filepath.ToSlash(result.file.source.PrettyPath)
+		}
+
 		sb := strings.Builder{}
 		isFirstImport := true
 
@@ -2245,8 +2251,8 @@ func (b *Bundle) generateMetadataJSON(results []OutputFile, allReachableFiles []
 			comma = ""
 		}
 		// Platform independent paths and avoid creating invalid JSON
-		key = strings.ReplaceAll(key, "\\", "/")
-		val = strings.ReplaceAll(val, "\\", "/")
+		key = filepath.ToSlash(key)
+		val = filepath.ToSlash(val)
 		sb.WriteString(fmt.Sprintf("    \"%s\": \"%s\"%s\n", key, val, comma))
 		idx++
 
