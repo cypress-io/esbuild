@@ -1652,12 +1652,6 @@ func (s *scanner) processScannedFiles() []file {
 			continue
 		}
 
-		if s.options.CreateSnapshot {
-			// Normalize file paths to forward slashes to avoid cache/deferred/norewrite lookups on Windows
-			result.file.source.KeyPath.Text = filepath.ToSlash(result.file.source.KeyPath.Text)
-			result.file.source.PrettyPath = filepath.ToSlash(result.file.source.PrettyPath)
-		}
-
 		sb := strings.Builder{}
 		isFirstImport := true
 
