@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -85,8 +86,16 @@ var rx = regexp.MustCompile(`^[.]?[.]?[/]`)
 func trimPathPrefixAndNormalizeSlashes(paths []string) []string {
 	replaced := make([]string, len(paths))
 	for i, p := range paths {
-		p = strings.ReplaceAll(p, "\\", "/")
+		p = filepath.ToSlash(p)
 		replaced[i] = rx.ReplaceAllString(p, "")
+	}
+	return replaced
+}
+
+func normalizeSlashes(paths []string) []string {
+	replaced := make([]string, len(paths))
+	for i, p := range paths {
+		replaced[i] = filepath.ToSlash(p)
 	}
 	return replaced
 }
@@ -104,6 +113,9 @@ func SnapCmd(processArgs ProcessCmdArgs) {
 	json.Unmarshal(jsonBytes, &cmdArgs)
 	if cmdArgs.Norewrite != nil {
 		cmdArgs.Norewrite = trimPathPrefixAndNormalizeSlashes(cmdArgs.Norewrite)
+	}
+	if cmdArgs.Deferred != nil {
+		cmdArgs.Deferred = normalizeSlashes(cmdArgs.Deferred)
 	}
 	fmt.Fprintln(os.Stderr, cmdArgs.toString())
 

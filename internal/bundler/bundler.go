@@ -2245,8 +2245,8 @@ func (b *Bundle) generateMetadataJSON(results []OutputFile, allReachableFiles []
 			comma = ""
 		}
 		// Platform independent paths and avoid creating invalid JSON
-		key = strings.ReplaceAll(key, "\\", "/")
-		val = strings.ReplaceAll(val, "\\", "/")
+		key = filepath.ToSlash(key)
+		val = filepath.ToSlash(val)
 		sb.WriteString(fmt.Sprintf("    \"%s\": \"%s\"%s\n", key, val, comma))
 		idx++
 

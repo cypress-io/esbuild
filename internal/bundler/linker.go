@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"math/rand"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -1365,9 +1366,11 @@ func (c *linkerContext) scanImportsAndExports() {
 			}
 			// When creating a snapshot we need to wrap any module except the runtime
 			// itself, regardless if it has exports or not. This includes the entry
-			// point
+			// point, additionally we want to normalize paths on Windows to use forward slashes
 			if c.options.CreateSnapshot && file.source.Index != runtime.SourceIndex {
 				repr.meta.wrap = wrapCJS
+				relPath, _ := filepath.Rel(c.options.SnapshotAbsBaseDir, file.source.KeyPath.Text)
+				c.symbols.Get(repr.ast.WrapperRef).OriginalName = fmt.Sprintf("./%s", filepath.ToSlash(relPath))
 			}
 		}
 	}

@@ -35,11 +35,6 @@ func CreateShouldReplaceRequire(
 ) api.ShouldReplaceRequirePredicate {
 	isExternal := IsExternalModule(platform, external)
 	return func(mdl string) bool {
-		// NOTE: normalizing cache/require keys to always use forward slashes
-		// We could already store them as such which would be more efficient, but after measuring
-		// I found zero perf overhead on OSX. Nothing gets replaced in this case so the only affected
-		// OS would be windows, but should be neglible there as well.
-		rewriteMdl := strings.ReplaceAll(mdl, "\\", "/")
-		return isExternal(mdl) || IsNative(mdl) || replaceRequire(mdl) || !rewriteModule(rewriteMdl)
+		return isExternal(mdl) || IsNative(mdl) || replaceRequire(mdl) || !rewriteModule(mdl)
 	}
 }
