@@ -2,14 +2,16 @@ package snap_printer
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strings"
+	"testing"
+
+	"github.com/evanw/esbuild/internal/compat"
 	"github.com/evanw/esbuild/internal/js_ast"
 	"github.com/evanw/esbuild/internal/js_parser"
 	"github.com/evanw/esbuild/internal/logger"
 	"github.com/evanw/esbuild/internal/snap_renamer"
 	"github.com/evanw/esbuild/internal/test"
-	"io/ioutil"
-	"strings"
-	"testing"
 )
 
 func assertEqual(t *testing.T, a interface{}, b interface{}) {
@@ -110,7 +112,7 @@ func expectPrinted(t *testing.T, contents string, expected string, shouldReplace
 		contents,
 		contents,
 		expected,
-		PrintOptions{},
+		PrintOptions{UnsupportedFeatures: compat.DynamicImport},
 		testOpts{shouldReplaceRequire: shouldReplaceRequire, shouldRewrite: true, validateStrict: true},
 	)
 }

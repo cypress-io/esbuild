@@ -18,6 +18,7 @@ snap-platform-all: cmd/esbuild/version.go
 		snap-platform-windows-32 \
 		snap-platform-android-arm64 \
 		snap-platform-darwin \
+		snap-platform-darwin-arm64 \
 		snap-platform-freebsd \
 		snap-platform-freebsd-arm64 \
 		snap-platform-linux \

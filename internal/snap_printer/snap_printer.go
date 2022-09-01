@@ -979,7 +979,6 @@ func (p *printer) printRequireOrImportExpr(importRecordIndex uint32, leadingInte
 
 			p.printSpaceBeforeIdentifier()
 			p.print("require(")
-			p.printQuotedUTF8(record.Path.Text, true /* allowBacktick */)
 			defer p.print(")")
 		}
 		if len(leadingInteriorComments) > 0 {
@@ -992,6 +991,10 @@ func (p *printer) printRequireOrImportExpr(importRecordIndex uint32, leadingInte
 		}
 		p.addSourceMapping(record.Range.Loc)
 		p.printQuotedUTF8(record.Path.Text, true /* allowBacktick */)
+		p.print(", ")
+		p.printQuotedUTF8(p.resolveRequireName(record), true /* allowBacktick */)
+		p.print(", (typeof __filename2 !== 'undefined' ? __filename2 : __filename)")
+		p.print(", (typeof __dirname2 !== 'undefined' ? __dirname2 : __dirname)")
 		if len(leadingInteriorComments) > 0 {
 			p.printNewline()
 			p.options.Indent--

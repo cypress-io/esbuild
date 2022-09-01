@@ -1,6 +1,6 @@
 {
-	"name": "snapbuild-linux-mips64le",
-	"version": "0.0.133",
+	"name": "@cypress/snapbuild-linux-mips64le",
+	"version": "1.0.0",
 	"main": "bin/snapshot",
 	"description": "The Linux MIPS 64-bit Little Endian binary for snapbuild, a snapshot bundler.",
 	"repository": "https://github.com/cypress-io/esbuild",
@@ -13,5 +13,8 @@
 	],
 	"directories": {
 		"bin": "bin"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }

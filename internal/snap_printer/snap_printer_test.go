@@ -1315,3 +1315,11 @@ function runTests() {
 }
 `, ReplaceAll)
 }
+
+func TestDynamicImport(t *testing.T) {
+	expectPrinted(t, `
+let first = await import('./base')
+`, `
+let first = await Promise.resolve().then(() => require("./base", "./base", (typeof __filename2 !== 'undefined' ? __filename2 : __filename), (typeof __dirname2 !== 'undefined' ? __dirname2 : __dirname)));
+`, ReplaceAll)
+}
