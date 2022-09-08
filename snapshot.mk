@@ -86,7 +86,8 @@ snap-publish-all: cmd/esbuild/version.go snap-test-prepublish
 		snap-publish-windows-32 \
 		snap-publish-freebsd \
 		snap-publish-freebsd-arm64 \
-		snap-publish-darwin
+		snap-publish-darwin \
+		snap-publish-darwin-arm64
 	@echo Enter one-time password:
 	@read OTP && OTP="$$OTP" make -j4 \
 		snap-publish-android-arm64 \
