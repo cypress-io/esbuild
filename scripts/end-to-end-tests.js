@@ -1349,7 +1349,7 @@
         let fn = async () => {
           let error
           await import('./out.js').catch(x => error = x)
-          if (!error || error.message !== 'require is not defined') throw 'fail'
+          if (!error || !error.message.includes('require is not defined')) throw 'fail'
         }
         export {fn as async}
       `,
@@ -1370,7 +1370,7 @@
         let fn = async () => {
           let error
           await import('./out.js').catch(x => error = x)
-          if (!error || error.message !== 'require is not defined') throw 'fail'
+          if (!error || !error.message.includes('require is not defined')) throw 'fail'
         }
         export {fn as async}
       `,

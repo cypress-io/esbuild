@@ -112,7 +112,7 @@ func (p *printer) prependTopLevelDecls() {
 			}
 			decl += v.name
 		}
-		decl += ";\n"
+		decl += ";"
 		prepend(p, nil, decl)
 		return
 	}
@@ -144,6 +144,8 @@ func (p *printer) prependTopLevelDecls() {
 
 	// TODO(thlorenz): map iteration order is not guaranteed but here we make the assumption that it is
 	// https://stackoverflow.com/a/9621526/97443
+	size := len(grouped)
+	count := 1
 	for idx, names := range grouped {
 		decl := "let "
 		for i, name := range names {
@@ -152,9 +154,13 @@ func (p *printer) prependTopLevelDecls() {
 			}
 			decl += name
 		}
-		decl += ";\n"
+		decl += ";"
+		if count < size {
+			decl += "\n"
+		}
 		loc := idx + offset
 		prepend(p, &loc, decl)
 		offset = offset + len(decl)
+		count++
 	}
 }

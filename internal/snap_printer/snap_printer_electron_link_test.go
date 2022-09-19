@@ -41,8 +41,7 @@ function main () {
   return a + b
 }
     `, `
-let __get_a__;
-let a, b;
+let __get_a__;let a, b;
 if (condition) {
   
 __get_a__ = function() {
@@ -79,7 +78,6 @@ function main () {
   e()
 } `, `
 let __get_e__;
-
 let a;
 function __get_a__() {
   return a = a || (require("a"))
@@ -332,8 +330,7 @@ let a, b, c, d, e, f;
 a = 1, b = 2, c = 3;
 d = require("d"), e = d.e, f = e.f;
 `, `
-let __get_d__, __get_e__, __get_f__;
-let a, b, c, d, e, f;
+let __get_d__, __get_e__, __get_f__;let a, b, c, d, e, f;
 a = 1, b = 2, c = 3;
 
 __get_d__ = function() {

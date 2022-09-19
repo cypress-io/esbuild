@@ -282,7 +282,7 @@ func (p *printer) printQuotedUTF8(text string, allowBacktick bool) {
 }
 
 func (p *printer) addSourceMapping(loc logger.Loc) {
-	if !p.options.AddSourceMappings || loc == p.prevLoc {
+	if !p.options.AddSourceMappings || loc == p.prevLoc || p.lastGeneratedUpdate == len(p.js) || p.options.Indent == 0 {
 		return
 	}
 	p.prevLoc = loc
@@ -2913,8 +2913,9 @@ func Print(
 		}
 	}
 
+	p.updateGeneratedLineAndColumn()
+
 	if isRenaming {
-		p.updateGeneratedLineAndColumn()
 		// This has to happen before prepending top level decls as otherwise our locations are off
 		p.fixNamedBeforeReplaceds()
 		p.prependTopLevelDecls()
