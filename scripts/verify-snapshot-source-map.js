@@ -416,11 +416,13 @@ async function main() {
           entryPoint: 'a.js',
           crlf,
         }),
+        // Test renaming local variables
         check('local-variable-swap' + suffix, testCaseLocalVariableSwap, toSearchLocalVariableSwap, {
           entryPoint: 'entry.js',
           crlf,
           status,
         }),
+        // Test renaming local variables that are nested inside of functions
         check('nested' + suffix, testCaseNested, toSearchNested, {
           entryPoint: 'entry.js',
           crlf,

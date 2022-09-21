@@ -2,6 +2,8 @@ package snap_printer
 
 import "testing"
 
+// Note that formatting on some of the generated code isn't perfect. This is known: https://github.com/cypress-io/esbuild/issues/11
+
 func TestIsolatedRequireRewrites(t *testing.T) {
 	expectPrinted(t, "const foo = require('./foo')", `
 let foo;
