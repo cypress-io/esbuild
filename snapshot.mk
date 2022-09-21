@@ -76,7 +76,7 @@ snap-platform-linux-ppc64le:
 	make GOOS=linux GOARCH=ppc64le NPMDIR=npm/snapbuild-linux-ppc64le snap-platform-unixlike
 
 snap-publish-all: cmd/esbuild/version.go snap-test-prepublish
-	@test thlorenz/snap = "`git rev-parse --abbrev-ref HEAD`" || (echo "Refusing to publish from non-snapshot branch `git rev-parse --abbrev-ref HEAD`" && false)
+	@test main = "`git rev-parse --abbrev-ref HEAD`" || (echo "Refusing to publish from non-snapshot branch `git rev-parse --abbrev-ref HEAD`" && false)
 	@echo "Checking for unpushed commits..." && git fetch
 	@test "" = "`git cherry`" || (echo "Refusing to publish with unpushed commits" && false)
 	rm -fr npm && git checkout npm
