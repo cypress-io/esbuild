@@ -2,6 +2,7 @@
 /bench/
 /demo/
 /esbuild
+/snapshot
 /github/
 /npm/esbuild-wasm/browser.js
 /npm/esbuild-wasm/esbuild.wasm

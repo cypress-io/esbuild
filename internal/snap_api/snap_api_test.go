@@ -1,8 +1,9 @@
 package snap_api
 
 import (
-	"github.com/evanw/esbuild/internal/snap_printer"
 	"testing"
+
+	"github.com/evanw/esbuild/internal/snap_printer"
 )
 
 var snapApiSuite = suite{
@@ -145,8 +146,7 @@ old = Promise;
 				ProjectBaseDir + `/entry.js`: `
 __commonJS["./entry.js"] = function(exports, module2, __filename, __dirname, require) {
   "use strict";
-let __get_old__;
-  var old;
+let __get_old__;  var old;
   
 __get_old__ = function() {
   return old = old || (Promise)

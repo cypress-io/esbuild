@@ -1,14 +1,11 @@
 const { SourceMapConsumer } = require('source-map')
-const { buildBinary, removeRecursiveSync } = require('./esbuild')
+const { buildBinary, removeRecursiveSync } = require('./snapbuild')
 const childProcess = require('child_process')
 const path = require('path')
-const util = require('util')
 const fs = require('fs').promises
 
-const execFileAsync = util.promisify(childProcess.execFile)
-
-const esbuildPath = buildBinary()
-const testDir = path.join(__dirname, '.verify-source-map')
+const snapbuildPath = buildBinary()
+const testDir = path.join(__dirname, '.verify-snapshot-source-map')
 let tempDirCount = 0
 
 const toSearchBundle = {
@@ -21,18 +18,6 @@ const toSearchBundle = {
   c0: 'b-dir/c-dir/c.js',
   c1: 'b-dir/c-dir/c.js',
   c2: 'b-dir/c-dir/c.js',
-}
-
-const toSearchNoBundle = {
-  a0: 'a.js',
-  a1: 'a.js',
-  a2: 'a.js',
-}
-
-const toSearchNoBundleTS = {
-  a0: 'a.ts',
-  a1: 'a.ts',
-  a2: 'a.ts',
 }
 
 const testCaseES6 = {
@@ -98,28 +83,6 @@ const testCaseDiscontiguous = {
   `,
 }
 
-const testCaseTypeScriptRuntime = {
-  'a.ts': `
-    namespace Foo {
-      export var {a, ...b} = foo() // This requires a runtime function to handle
-      console.log(a, b)
-    }
-    function a0() { a1("a0") }
-    function a1() { a2("a1") }
-    function a2() { throw new Error("a2") }
-    a0()
-  `,
-}
-
-const testCaseStdin = {
-  '<stdin>': `#!/usr/bin/env node
-    function a0() { a1("a0") }
-    function a1() { a2("a1") }
-    function a2() { throw new Error("a2") }
-    a0()
-  `,
-}
-
 const testCaseEmptyFile = {
   'entry.js': `
     import './before'
@@ -174,24 +137,6 @@ const toSearchNonJavaScriptFile = {
   after: 'after.js',
 }
 
-const testCaseCodeSplitting = {
-  'out.ts': `
-    import value from './shared'
-    console.log("out", value)
-  `,
-  'other.ts': `
-    import value from './shared'
-    console.log("other", value)
-  `,
-  'shared.ts': `
-    export default 123
-  `,
-}
-
-const toSearchCodeSplitting = {
-  out: 'out.ts',
-}
-
 const testCaseUnicode = {
   'entry.js': `
     import './a'
@@ -244,48 +189,54 @@ const toSearchPartialMappings = {
   entry: 'entry.js',
 }
 
-const testCaseComplex = {
-  // "fuse.js" is included because it has a nested source map of some complexity.
-  // "react" is included after that because it's a big blob of code and helps
-  // make sure stuff after a nested source map works ok.
-  'entry.js': `
-    import Fuse from 'fuse.js'
-    import * as React from 'react'
-    console.log(Fuse, React)
-  `,
+const testCaseLocalVariableSwap = {
+  'entry.js': `exports['./a.js'] = require('./a.js')
+exports['./b.js'] = require('./b.js')
+`,
+  'a.js': `'use strict';
+const b = require('./b.js');
+
+let local;
+if (b.test === "z-test") {
+  module.exports = b.test;
+} else {
+  local = process.env["a-test"];
+  module.exports = local;
+}
+`,
+  'b.js': `'use strict';
+module.exports = {test: "b-test"};`
 }
 
-const toSearchComplex = {
-  '[object Array]': '../../node_modules/fuse.js/dist/webpack:/src/helpers/is_array.js',
-  'Score average:': '../../node_modules/fuse.js/dist/webpack:/src/index.js',
-  '0123456789': '../../node_modules/object-assign/index.js',
-  'forceUpdate': '../../node_modules/react/cjs/react.production.min.js',
-};
-
-const testCaseDynamicImport = {
-  'entry.js': `
-    const then = (x) => console.log("imported", x);
-    console.log([import("./ext/a.js").then(then), import("./ext/ab.js").then(then), import("./ext/abc.js").then(then)]);
-    console.log([import("./ext/abc.js").then(then), import("./ext/ab.js").then(then), import("./ext/a.js").then(then)]);
-  `,
-  'ext/a.js': `
-    export default 'a'
-  `,
-  'ext/ab.js': `
-    export default 'ab'
-  `,
-  'ext/abc.js': `
-    export default 'abc'
-  `,
+const toSearchLocalVariableSwap = {
+  'a-test': 'a.js',
+  'z-test': 'a.js',
+  'b-test': 'b.js',
 }
 
-const toSearchDynamicImport = {
-  './ext/a.js': 'entry.js',
-  './ext/ab.js': 'entry.js',
-  './ext/abc.js': 'entry.js',
-};
+const testCaseNested = {
+  'entry.js': `function nested() {
+    let a
+    a = require('./a')
+  }
+  let b, c
+  b = require('./b')
+  c = b.foo
+  module.exports = {b, c, a: nested}
+`,
+  'a.js': `module.exports = {foo: "a-test"};`,
+  'b.js': `'use strict';
+module.exports = {foo: "b-test"};
+`
+}
 
-async function check(kind, testCase, toSearch, { flags, entryPoints, crlf, followUpFlags = [] }) {
+const toSearchNested = {
+  'a-test': 'a.js',
+  'b-test': 'b.js',
+  './b': 'entry.js',
+}
+
+async function check(kind, testCase, toSearch, { entryPoint, crlf, status }) {
   let failed = 0
 
   try {
@@ -299,26 +250,32 @@ async function check(kind, testCase, toSearch, { flags, entryPoints, crlf, follo
     const tempDir = path.join(testDir, `${kind}-${tempDirCount++}`)
     await fs.mkdir(tempDir, { recursive: true })
 
+    let allPaths = []
     for (const name in testCase) {
-      if (name !== '<stdin>') {
-        const tempPath = path.join(tempDir, name)
-        let code = testCase[name]
-        await fs.mkdir(path.dirname(tempPath), { recursive: true })
-        if (crlf) code = code.replace(/\n/g, '\r\n')
-        await fs.writeFile(tempPath, code)
-      }
+      const tempPath = path.join(tempDir, name)
+      let code = testCase[name]
+      await fs.mkdir(path.dirname(tempPath), { recursive: true })
+      if (crlf) code = code.replace(/\n/g, '\r\n')
+      await fs.writeFile(tempPath, code)
+      allPaths.push(`./${path.relative(tempDir, tempPath)}`)
     }
 
-    const args = ['--sourcemap', '--log-level=warning'].concat(flags)
-    const isStdin = '<stdin>' in testCase
-    let stdout = ''
+    const configFilePath = path.join(tempDir, 'config.json')
+    await fs.writeFile(configFilePath, JSON.stringify({
+      basedir: tempDir,
+      entryfile: path.join(tempDir, entryPoint),
+      deferred: status === 'all-deferred' ? allPaths : [],
+      norewrite: status === 'all-norewrite' ? allPaths : [],
+      doctor: false,
+      metafile: true,
+      outfile: path.join(tempDir, 'out.js'),
+      sourcemap: path.join(tempDir, 'out.js.map'),
+    }, null, 2))
+
+    const args = [configFilePath, '--log-level=warning']
 
     await new Promise((resolve, reject) => {
-      args.unshift(...entryPoints)
-      const child = childProcess.spawn(esbuildPath, args, { cwd: tempDir, stdio: ['pipe', 'pipe', 'inherit'] })
-      if (isStdin) child.stdin.write(testCase['<stdin>'])
-      child.stdin.end()
-      child.stdout.on('data', chunk => stdout += chunk.toString())
+      const child = childProcess.spawn(snapbuildPath, args, { cwd: tempDir, stdio: ['pipe', 'pipe', 'inherit'] })
       child.stdout.on('end', resolve)
       child.on('error', reject)
     })
@@ -326,19 +283,10 @@ async function check(kind, testCase, toSearch, { flags, entryPoints, crlf, follo
     let outJs
     let outJsMap
 
-    if (isStdin) {
-      outJs = stdout
-      recordCheck(outJs.includes(`//# sourceMappingURL=data:application/json;base64,`), `.js file must contain source map`)
-      outJsMap = Buffer.from(outJs.slice(outJs.indexOf('base64,') + 'base64,'.length).trim(), 'base64').toString()
-    }
+    outJs = await fs.readFile(path.join(tempDir, 'out.js'), 'utf8')
+    outJsMap = await fs.readFile(path.join(tempDir, 'out.js.map'), 'utf8')
 
-    else {
-      outJs = await fs.readFile(path.join(tempDir, 'out.js'), 'utf8')
-      recordCheck(outJs.includes(`//# sourceMappingURL=out.js.map\n`), `.js file must link to .js.map`)
-      outJsMap = await fs.readFile(path.join(tempDir, 'out.js.map'), 'utf8')
-    }
-
-    // Check the mapping of various key locations back to the original source
+    // // Check the mapping of various key locations back to the original source
     const checkMap = (out, map) => {
       for (const id in toSearch) {
         const outIndex = out.indexOf(`"${id}"`)
@@ -348,7 +296,7 @@ async function check(kind, testCase, toSearch, { flags, entryPoints, crlf, follo
         const outColumn = outLines[outLines.length - 1].length
         const { source, line, column } = map.originalPositionFor({ line: outLine, column: outColumn })
 
-        const inSource = isStdin ? '<stdin>' : toSearch[id];
+        const inSource = toSearch[id];
         recordCheck(source === inSource, `expected source: ${inSource}, observed source: ${source}`)
 
         const inJs = map.sourceContentFor(source)
@@ -388,47 +336,29 @@ async function check(kind, testCase, toSearch, { flags, entryPoints, crlf, follo
 
     await SourceMapConsumer.with(outJsMap, null, async function (outMap) {
       checkMap(outJs, outMap)
-
+  
       // Check that every generated location has an associated original position.
-      // This only works when not bundling because bundling includes runtime code.
-      if (flags.indexOf('--bundle') < 0) {
-        // The last line doesn't have a source map entry, but that should be ok.
-        const outLines = outJs.trimRight().split('\n');
-
-        for (let outLine = 0; outLine < outLines.length; outLine++) {
-          if (outLines[outLine].startsWith('#!') || outLines[outLine].startsWith('//')) {
-            // Ignore the hashbang line and the source map comment itself
-            continue;
-          }
-
+      const outLines = outJs.trimRight().split('\n');
+  
+      let insideGeneratedCode = false
+      for (let outLine = 0; outLine < outLines.length; outLine++) {
+        if (insideGeneratedCode) {
           for (let outColumn = 0; outColumn <= outLines[outLine].length; outColumn++) {
             const { line, column } = outMap.originalPositionFor({ line: outLine + 1, column: outColumn })
-
-            recordCheck(line !== null && column !== null, `missing location for line ${outLine} and column ${outColumn}`)
+  
+            recordCheck(line !== null && column !== null, `missing location for line ${outLine+1} and column ${outColumn}`)
           }
+        }
+  
+        if (/^__commonJS\[\"\S+.js/.test(outLines[outLine])) {
+          insideGeneratedCode = true
+        }
+  
+        if (outLines[outLine].startsWith('}')) {
+          insideGeneratedCode = false
         }
       }
     })
-
-    // Bundle again to test nested source map chaining
-    for (let order of [0, 1, 2]) {
-      const fileToTest = isStdin ? 'stdout.js' : 'out.js'
-      const nestedEntry = path.join(tempDir, 'nested-entry.js')
-      if (isStdin) await fs.writeFile(path.join(tempDir, fileToTest), outJs)
-      await fs.writeFile(path.join(tempDir, 'extra.js'), `console.log('extra')`)
-      await fs.writeFile(nestedEntry,
-        order === 1 ? `import './${fileToTest}'; import './extra.js'` :
-          order === 2 ? `import './extra.js'; import './${fileToTest}'` :
-            `import './${fileToTest}'`)
-      await execFileAsync(esbuildPath, [nestedEntry, '--bundle', '--outfile=' + path.join(tempDir, 'out2.js'), '--sourcemap'].concat(followUpFlags), { cwd: testDir })
-
-      const out2Js = await fs.readFile(path.join(tempDir, 'out2.js'), 'utf8')
-      recordCheck(out2Js.includes(`//# sourceMappingURL=out2.js.map\n`), `.js file must link to .js.map`)
-      const out2JsMap = await fs.readFile(path.join(tempDir, 'out2.js.map'), 'utf8')
-
-      const out2Map = await new SourceMapConsumer(out2JsMap)
-      checkMap(out2Js, out2Map)
-    }
 
     if (!failed) removeRecursiveSync(tempDir)
   }
@@ -444,91 +374,60 @@ async function check(kind, testCase, toSearch, { flags, entryPoints, crlf, follo
 async function main() {
   const promises = []
   for (const crlf of [false, true]) {
-    for (const minify of [false, true]) {
-      const flags = minify ? ['--minify'] : []
-      const suffix = (crlf ? '-crlf' : '') + (minify ? '-min' : '')
+    for (const status of ['all-healthy', 'all-deferred', 'all-norewrite']) {
+      const suffix = (crlf ? '-crlf' : '') + '-' + status
       promises.push(
         check('commonjs' + suffix, testCaseCommonJS, toSearchBundle, {
-          flags: flags.concat('--outfile=out.js', '--bundle'),
-          entryPoints: ['a.js'],
+          entryPoint: 'a.js',
           crlf,
         }),
         check('es6' + suffix, testCaseES6, toSearchBundle, {
-          flags: flags.concat('--outfile=out.js', '--bundle'),
-          entryPoints: ['a.js'],
+          entryPoint: 'a.js',
           crlf,
         }),
         check('discontiguous' + suffix, testCaseDiscontiguous, toSearchBundle, {
-          flags: flags.concat('--outfile=out.js', '--bundle'),
-          entryPoints: ['a.js'],
-          crlf,
-        }),
-        check('ts' + suffix, testCaseTypeScriptRuntime, toSearchNoBundleTS, {
-          flags: flags.concat('--outfile=out.js'),
-          entryPoints: ['a.ts'],
-          crlf,
-        }),
-        check('stdin-stdout' + suffix, testCaseStdin, toSearchNoBundle, {
-          flags: flags.concat('--sourcefile=<stdin>'),
-          entryPoints: [],
+          entryPoint: 'a.js',
           crlf,
         }),
         check('empty' + suffix, testCaseEmptyFile, toSearchEmptyFile, {
-          flags: flags.concat('--outfile=out.js', '--bundle'),
-          entryPoints: ['entry.js'],
+          entryPoint: 'entry.js',
           crlf,
         }),
         check('non-js' + suffix, testCaseNonJavaScriptFile, toSearchNonJavaScriptFile, {
-          flags: flags.concat('--outfile=out.js', '--bundle'),
-          entryPoints: ['entry.js'],
-          crlf,
-        }),
-        check('splitting' + suffix, testCaseCodeSplitting, toSearchCodeSplitting, {
-          flags: flags.concat('--outdir=.', '--bundle', '--splitting', '--format=esm'),
-          entryPoints: ['out.ts', 'other.ts'],
+          entryPoint: 'entry.js',
           crlf,
         }),
         check('unicode' + suffix, testCaseUnicode, toSearchUnicode, {
-          flags: flags.concat('--outfile=out.js', '--bundle', '--charset=utf8'),
-          entryPoints: ['entry.js'],
+          entryPoint: 'entry.js',
           crlf,
         }),
         check('unicode-globalName' + suffix, testCaseUnicode, toSearchUnicode, {
-          flags: flags.concat('--outfile=out.js', '--bundle', '--global-name=πππ', '--charset=utf8'),
-          entryPoints: ['entry.js'],
+          entryPoint: 'entry.js',
           crlf,
         }),
         check('dummy' + suffix, testCasePartialMappings, toSearchPartialMappings, {
-          flags: flags.concat('--outfile=out.js', '--bundle'),
-          entryPoints: ['entry.js'],
+          entryPoint: 'entry.js',
           crlf,
         }),
         check('dummy' + suffix, testCasePartialMappingsPercentEscape, toSearchPartialMappings, {
-          flags: flags.concat('--outfile=out.js', '--bundle'),
-          entryPoints: ['entry.js'],
+          entryPoint: 'entry.js',
           crlf,
         }),
         check('banner-footer' + suffix, testCaseES6, toSearchBundle, {
-          flags: flags.concat('--outfile=out.js', '--bundle', '--banner:js="/* LICENSE abc */"', '--footer:js="/* end of file banner */"'),
-          entryPoints: ['a.js'],
+          entryPoint: 'a.js',
           crlf,
         }),
-        check('complex' + suffix, testCaseComplex, toSearchComplex, {
-          flags: flags.concat('--outfile=out.js', '--bundle', '--define:process.env.NODE_ENV="production"'),
-          entryPoints: ['entry.js'],
+        // Test renaming local variables
+        check('local-variable-swap' + suffix, testCaseLocalVariableSwap, toSearchLocalVariableSwap, {
+          entryPoint: 'entry.js',
           crlf,
+          status,
         }),
-        check('dynamic-import' + suffix, testCaseDynamicImport, toSearchDynamicImport, {
-          flags: flags.concat('--outfile=out.js', '--bundle', '--external:./ext/*', '--format=esm'),
-          entryPoints: ['entry.js'],
+        // Test renaming local variables that are nested inside of functions
+        check('nested' + suffix, testCaseNested, toSearchNested, {
+          entryPoint: 'entry.js',
           crlf,
-          followUpFlags: ['--external:./ext/*', '--format=esm'],
-        }),
-        check('dynamic-require' + suffix, testCaseDynamicImport, toSearchDynamicImport, {
-          flags: flags.concat('--outfile=out.js', '--bundle', '--external:./ext/*', '--format=cjs'),
-          entryPoints: ['entry.js'],
-          crlf,
-          followUpFlags: ['--external:./ext/*', '--format=cjs'],
+          status,
         }),
       )
     }
@@ -536,10 +435,10 @@ async function main() {
 
   const failed = (await Promise.all(promises)).reduce((a, b) => a + b, 0)
   if (failed > 0) {
-    console.error(`❌ verify source map failed`)
+    console.error(`❌ verify snapshot source map failed`)
     process.exit(1)
   } else {
-    console.log(`✅ verify source map passed`)
+    console.log(`✅ verify snapshot source map passed`)
     removeRecursiveSync(testDir)
   }
 }

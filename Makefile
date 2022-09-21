@@ -7,7 +7,7 @@ test:
 	make -j6 test-common
 
 # These tests are for development
-test-common: test-go vet-go no-filepath verify-source-map end-to-end-tests js-api-tests plugin-tests register-test node-unref-tests
+test-common: test-go vet-go no-filepath verify-source-map verify-snapshot-source-map end-to-end-tests js-api-tests plugin-tests register-test node-unref-tests
 
 # These tests are for release (the extra tests are not included in "test" because they are pretty slow)
 test-all:
@@ -52,6 +52,10 @@ register-test: cmd/esbuild/version.go | scripts/node_modules
 verify-source-map: cmd/esbuild/version.go | scripts/node_modules
 	cd npm/esbuild && npm version "$(ESBUILD_VERSION)" --allow-same-version
 	node scripts/verify-source-map.js
+
+verify-snapshot-source-map: cmd/esbuild/version.go | scripts/node_modules
+	cd npm/esbuild && npm version "$(ESBUILD_VERSION)" --allow-same-version
+	node scripts/verify-snapshot-source-map.js
 
 end-to-end-tests: cmd/esbuild/version.go | scripts/node_modules
 	cd npm/esbuild && npm version "$(ESBUILD_VERSION)" --allow-same-version

@@ -561,7 +561,7 @@ func parseFile(args parseArgs) {
 	}
 
 	// Attempt to parse the source map if present
-	if loader.CanHaveSourceMap() && args.options.SourceMap != config.SourceMapNone {
+	if !args.options.CreateSnapshot && loader.CanHaveSourceMap() && args.options.SourceMap != config.SourceMapNone {
 		if repr, ok := result.file.repr.(*reprJS); ok && repr.ast.SourceMapComment.Text != "" {
 			if path, contents := extractSourceMapFromComment(args.log, args.fs, &args.caches.FSCache,
 				args.res, &source, repr.ast.SourceMapComment, absResolveDir); contents != nil {

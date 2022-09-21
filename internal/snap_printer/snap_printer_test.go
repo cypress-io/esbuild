@@ -2,6 +2,8 @@ package snap_printer
 
 import "testing"
 
+// Note that formatting on some of the generated code isn't perfect. This is known: https://github.com/cypress-io/esbuild/issues/11
+
 func TestIsolatedRequireRewrites(t *testing.T) {
 	expectPrinted(t, "const foo = require('./foo')", `
 let foo;
@@ -83,8 +85,7 @@ func TestSingleLateAssignment(t *testing.T) {
 let a;
 a = require('a')
 `, `
-let __get_a__;
-let a;
+let __get_a__;let a;
 
 __get_a__ = function() {
   return a = a || (require("a"))
@@ -97,8 +98,7 @@ let a, b;
 a = require('a')
 b = require('b')
 `, `
-let __get_a__, __get_b__;
-let a, b;
+let __get_a__, __get_b__;let a, b;
 
 __get_a__ = function() {
   return a = a || (require("a"))
@@ -115,8 +115,7 @@ func TestSingleLateAssignmentWithReference(t *testing.T) {
 let a;
 a = require('a')
 `, `
-let __get_a__;
-let a;
+let __get_a__;let a;
 
 __get_a__ = function() {
   return a = a || (require("a"))
@@ -130,8 +129,7 @@ let a, b;
 a = require('a')
 b = require('b')
 `, `
-let __get_a__;
-let a, b;
+let __get_a__;let a, b;
 
 __get_a__ = function() {
   return a = a || (require("a"))
@@ -204,8 +202,7 @@ func TestRequireLateAssignmentPropertyChain(t *testing.T) {
 let bar
 bar = require('foo').bar
 `, `
-let __get_bar__;
-let bar;
+let __get_bar__;let bar;
 
 __get_bar__ = function() {
   return bar = bar || (require("foo").bar)
@@ -216,8 +213,7 @@ __get_bar__ = function() {
 let baz
 baz = require('foo').bar.baz
 `, `
-let __get_baz__;
-let baz;
+let __get_baz__;let baz;
 
 __get_baz__ = function() {
   return baz = baz || (require("foo").bar.baz)
@@ -255,8 +251,7 @@ function id() {
   foo.id = 'hello'
 }
 `, `
-let __get_foo__, __get_bar__;
-let foo, bar;
+let __get_foo__, __get_bar__;let foo, bar;
 
 __get_foo__ = function() {
   return foo = foo || (require("foo-bar").foo)
@@ -282,8 +277,7 @@ function foo() {
   a.b = 'c'
 }
 `, `
-let __get_a__;
-let a;
+let __get_a__;let a;
 if (condition) {
   
 __get_a__ = function() {
@@ -408,7 +402,6 @@ function main() {
 }
 `, `
 let __get_b__;
-
 let a;
 function __get_a__() {
   return a = a || (require("a"))
@@ -452,8 +445,7 @@ d = require("d");
 e = d.e;
 f = e.f;
 `, `
-let __get_d__, __get_e__, __get_f__;
-let d, e, f;
+let __get_d__, __get_e__, __get_f__;let d, e, f;
 
 __get_d__ = function() {
   return d = d || (require("d"))
@@ -542,8 +534,7 @@ let b, c
 b = require('b')
 c = b.foo
 `, `
-let __get_b__, __get_c__;
-function nested() {
+let __get_b__, __get_c__;function nested() {
   let a;
   a = require("a");
 }
@@ -703,8 +694,7 @@ __get_typesOuter__ = function() {
   }
 })(this, function(exports) {
   "use strict";
-let __get_types__;
-  var types = {};
+let __get_types__;  var types = {};
   if (typeof Array.from === "function") {
     
 __get_types__ = function() {
@@ -758,7 +748,6 @@ var emitter
 emitter = process.__signal_exit_emitter__ = new EE()
 `, `
 let __get_emitter__;
-
 let EE;
 function __get_EE__() {
   return EE = EE || (require("events"))
@@ -1260,8 +1249,7 @@ func TestTwoInOneVarAssignment(t *testing.T) {
 let first, second;
 first = second = require('./base')
 `, `
-let __get_first__, __get_second__;
-let first, second;
+let __get_first__, __get_second__;let first, second;
 
 __get_first__ = function() {
   return first = first || (require("./base"))

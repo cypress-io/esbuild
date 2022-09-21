@@ -117,7 +117,6 @@ func SnapCmd(processArgs ProcessCmdArgs) {
 	if cmdArgs.Deferred != nil {
 		cmdArgs.Deferred = normalizeSlashes(cmdArgs.Deferred)
 	}
-	fmt.Fprintln(os.Stderr, cmdArgs.toString())
 
 	// Print help text when there are missing arguments
 	if cmdArgs.Entryfile == "" {
