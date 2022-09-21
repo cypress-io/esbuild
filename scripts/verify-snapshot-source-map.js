@@ -360,6 +360,8 @@ async function check(kind, testCase, toSearch, { entryPoint, crlf, status }) {
     }
 
     if (!failed) removeRecursiveSync(tempDir)
+
+    outMap.destroy()
   }
 
   catch (e) {
