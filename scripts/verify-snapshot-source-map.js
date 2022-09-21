@@ -334,34 +334,33 @@ async function check(kind, testCase, toSearch, { entryPoint, crlf, status }) {
       }
     }
 
-    const outMap = await new SourceMapConsumer(outJsMap)
-    checkMap(outJs, outMap)
-
-    // Check that every generated location has an associated original position.
-    const outLines = outJs.trimRight().split('\n');
-
-    let insideGeneratedCode = false
-    for (let outLine = 0; outLine < outLines.length; outLine++) {
-      if (insideGeneratedCode) {
-        for (let outColumn = 0; outColumn <= outLines[outLine].length; outColumn++) {
-          const { line, column } = outMap.originalPositionFor({ line: outLine + 1, column: outColumn })
-
-          recordCheck(line !== null && column !== null, `missing location for line ${outLine+1} and column ${outColumn}`)
+    await SourceMapConsumer.with(outJsMap, null, async function (outMap) {
+      checkMap(outJs, outMap)
+  
+      // Check that every generated location has an associated original position.
+      const outLines = outJs.trimRight().split('\n');
+  
+      let insideGeneratedCode = false
+      for (let outLine = 0; outLine < outLines.length; outLine++) {
+        if (insideGeneratedCode) {
+          for (let outColumn = 0; outColumn <= outLines[outLine].length; outColumn++) {
+            const { line, column } = outMap.originalPositionFor({ line: outLine + 1, column: outColumn })
+  
+            recordCheck(line !== null && column !== null, `missing location for line ${outLine+1} and column ${outColumn}`)
+          }
+        }
+  
+        if (/^__commonJS\[\"\S+.js/.test(outLines[outLine])) {
+          insideGeneratedCode = true
+        }
+  
+        if (outLines[outLine].startsWith('}')) {
+          insideGeneratedCode = false
         }
       }
-
-      if (/^__commonJS\[\"\S+.js/.test(outLines[outLine])) {
-        insideGeneratedCode = true
-      }
-
-      if (outLines[outLine].startsWith('}')) {
-        insideGeneratedCode = false
-      }
-    }
+    })
 
     if (!failed) removeRecursiveSync(tempDir)
-
-    outMap.destroy()
   }
 
   catch (e) {

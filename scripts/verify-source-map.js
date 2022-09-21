@@ -386,27 +386,29 @@ async function check(kind, testCase, toSearch, { flags, entryPoints, crlf, follo
       }
     }
 
-    const outMap = await new SourceMapConsumer(outJsMap)
-    checkMap(outJs, outMap)
+    await SourceMapConsumer.with(outJsMap, null, async function (outMap) {
+      checkMap(outJs, outMap)
 
-    // Check that every generated location has an associated original position.
-    // This only works when not bundling because bundling includes runtime code.
-    if (flags.indexOf('--bundle') < 0) {
-      // The last line doesn't have a source map entry, but that should be ok.
-      const outLines = outJs.trimRight().split('\n');
+      // Check that every generated location has an associated original position.
+      // This only works when not bundling because bundling includes runtime code.
+      if (flags.indexOf('--bundle') < 0) {
+        // The last line doesn't have a source map entry, but that should be ok.
+        const outLines = outJs.trimRight().split('\n');
 
-      for (let outLine = 0; outLine < outLines.length; outLine++) {
-        if (outLines[outLine].startsWith('#!') || outLines[outLine].startsWith('//')) {
-          // Ignore the hashbang line and the source map comment itself
-          continue;
-        }
+        for (let outLine = 0; outLine < outLines.length; outLine++) {
+          if (outLines[outLine].startsWith('#!') || outLines[outLine].startsWith('//')) {
+            // Ignore the hashbang line and the source map comment itself
+            continue;
+          }
 
-        for (let outColumn = 0; outColumn <= outLines[outLine].length; outColumn++) {
-          const { line, column } = outMap.originalPositionFor({ line: outLine + 1, column: outColumn })
-          recordCheck(line !== null && column !== null, `missing location for line ${outLine} and column ${outColumn}`)
+          for (let outColumn = 0; outColumn <= outLines[outLine].length; outColumn++) {
+            const { line, column } = outMap.originalPositionFor({ line: outLine + 1, column: outColumn })
+
+            recordCheck(line !== null && column !== null, `missing location for line ${outLine} and column ${outColumn}`)
+          }
         }
       }
-    }
+    })
 
     // Bundle again to test nested source map chaining
     for (let order of [0, 1, 2]) {
@@ -429,8 +431,6 @@ async function check(kind, testCase, toSearch, { flags, entryPoints, crlf, follo
     }
 
     if (!failed) removeRecursiveSync(tempDir)
-
-    outMap.destroy()
   }
 
   catch (e) {
