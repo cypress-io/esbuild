@@ -44,6 +44,74 @@ __commonJS["./foo.js"] = function(exports, module2, __filename, __dirname, requi
 	)
 }
 
+func TestTypeScriptImportingDefaultModule(t *testing.T) {
+	snapApiSuite.expectBuild(t, built{
+		files: map[string]string{
+			ProjectBaseDir + "/entry.js": `
+				import Debug from './debug'
+				const debug = Debug('foo')
+			`,
+			ProjectBaseDir + "/debug.js": `module.exports = function () {}`,
+		},
+		entryPoints: []string{ProjectBaseDir + "/entry.js"},
+	},
+		buildResult{
+			files: map[string]string{
+				ProjectBaseDir + "/debug.js": `
+__commonJS["./debug.js"] = function(exports, module2, __filename, __dirname, require) {
+  module2.exports = function() {
+  };
+};`,
+				ProjectBaseDir + "/entry.js": `
+__commonJS["./entry.js"] = function(exports, module2, __filename, __dirname, require) {
+let import_debug;
+function __get_import_debug__() {
+  return import_debug = import_debug || (__toModule(require("./debug", "./debug.js", (typeof __filename2 !== 'undefined' ? __filename2 : __filename), (typeof __dirname2 !== 'undefined' ? __dirname2 : __dirname))))
+}
+let debug;
+function __get_debug__() {
+  return debug = debug || ((0, (__get_import_debug__()).default)("foo"))
+}
+};`,
+			},
+		},
+	)
+}
+
+func TestJavaScriptRequiringDefaultModule(t *testing.T) {
+	snapApiSuite.expectBuild(t, built{
+		files: map[string]string{
+			ProjectBaseDir + "/entry.js": `
+				const Debug = require('./debug')
+				const debug = Debug('foo')
+			`,
+			ProjectBaseDir + "/debug.js": `module.exports = function () {}`,
+		},
+		entryPoints: []string{ProjectBaseDir + "/entry.js"},
+	},
+		buildResult{
+			files: map[string]string{
+				ProjectBaseDir + "/debug.js": `
+__commonJS["./debug.js"] = function(exports, module2, __filename, __dirname, require) {
+  module2.exports = function() {
+  };
+};`,
+				ProjectBaseDir + "/entry.js": `
+__commonJS["./entry.js"] = function(exports, module2, __filename, __dirname, require) {
+let Debug;
+function __get_Debug__() {
+  return Debug = Debug || (require("./debug", "./debug.js", (typeof __filename2 !== 'undefined' ? __filename2 : __filename), (typeof __dirname2 !== 'undefined' ? __dirname2 : __dirname)))
+}
+let debug;
+function __get_debug__() {
+  return debug = debug || ((__get_Debug__())("foo"))
+}
+};`,
+			},
+		},
+	)
+}
+
 func TestEntryImportingLocalModule(t *testing.T) {
 	snapApiSuite.expectBuild(t, built{
 		files: map[string]string{

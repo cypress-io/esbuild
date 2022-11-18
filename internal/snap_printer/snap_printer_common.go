@@ -313,6 +313,20 @@ func (p *printer) expressionHasRequireOrGlobalReference(expr *js_ast.Expr) bool 
 	}
 
 	switch x := expr.Data.(type) {
+	case *js_ast.EImportIdentifier:
+		ref := js_ast.FollowSymbols(p.symbols, x.Ref)
+		symbol := p.symbols.Get(ref)
+		refToCheck := x.Ref
+		if symbol.NamespaceAlias != nil {
+			refToCheck = symbol.NamespaceAlias.NamespaceRef
+		}
+		if p.renamer.HasBeenReplaced(refToCheck) {
+			return true
+		}
+		if p.renamer.GlobalNeedsDefer(refToCheck) {
+			return true
+		}
+		return false
 	case *js_ast.EIdentifier:
 		if p.renamer.HasBeenReplaced(x.Ref) {
 			return true
