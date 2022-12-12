@@ -1021,13 +1021,13 @@ type SNamespace struct {
 }
 
 type SFunction struct {
-	Fn       Fn
-	IsExport bool
+	Fn               Fn
+	IsExport         bool
 }
 
 type SClass struct {
-	Class    Class
-	IsExport bool
+	Class            Class
+	IsExport         bool
 }
 
 type SLabel struct {
@@ -1149,9 +1149,10 @@ const (
 )
 
 type SLocal struct {
-	Decls    []Decl
-	Kind     LocalKind
-	IsExport bool
+	Decls            []Decl
+	Kind             LocalKind
+	IsExport         bool
+	IsStrippedExport bool
 
 	// The TypeScript compiler doesn't generate code for "import foo = bar"
 	// statements where the import is never used.

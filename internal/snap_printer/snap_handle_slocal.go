@@ -2,9 +2,10 @@ package snap_printer
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/evanw/esbuild/internal/js_ast"
 	"github.com/evanw/esbuild/internal/snap_renamer"
-	"strings"
 )
 
 //
@@ -82,7 +83,7 @@ func (p *printer) extractDeclarations(local *js_ast.SLocal) []MaybeRequireDecl {
 	case js_ast.LocalConst,
 		js_ast.LocalLet,
 		js_ast.LocalVar:
-		if !local.IsExport {
+		if !local.IsExport && !local.IsStrippedExport {
 			for _, decl := range local.Decls {
 				require, isRequire := p.extractRequireDeclaration(decl)
 				if isRequire {

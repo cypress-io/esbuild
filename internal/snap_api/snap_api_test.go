@@ -491,6 +491,31 @@ __commonJS["./entry.js"] = function(exports, module2, __filename, __dirname, req
 		},
 	)
 }
+
+func TestExportDeferredLocalVar(t *testing.T) {
+	snapApiSuite.expectBuild(t, built{
+		files: map[string]string{
+			ProjectBaseDir + "/entry.js": `
+export const cwd = process.cwd()
+`,
+		},
+		entryPoints: []string{ProjectBaseDir + "/entry.js"},
+	},
+		buildResult{
+			files: map[string]string{
+				`dev/entry.js`: `
+__commonJS["./entry.js"] = function(exports, module, __filename, __dirname, require) {
+  __markAsModule(exports);
+  __export(exports, {
+    cwd: () => cwd
+  });
+  var cwd = get_process().cwd();
+};`,
+			},
+		},
+	)
+}
+
 func TestDebug(t *testing.T) {
 	snapApiSuite.debugBuild(t, built{
 		files: map[string]string{
