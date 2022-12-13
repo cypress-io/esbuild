@@ -1026,8 +1026,8 @@ type SFunction struct {
 }
 
 type SClass struct {
-	Class            Class
-	IsExport         bool
+	Class    Class
+	IsExport bool
 }
 
 type SLabel struct {
