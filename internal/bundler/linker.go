@@ -3434,6 +3434,7 @@ func (c *linkerContext) convertStmtsForChunk(sourceIndex uint32, stmtList *stmtL
 				// Be careful to not modify the original statement
 				clone := *s
 				clone.IsExport = false
+				clone.IsStrippedExport = true
 				stmt.Data = &clone
 			}
 

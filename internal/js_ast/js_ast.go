@@ -1149,9 +1149,10 @@ const (
 )
 
 type SLocal struct {
-	Decls    []Decl
-	Kind     LocalKind
-	IsExport bool
+	Decls            []Decl
+	Kind             LocalKind
+	IsExport         bool
+	IsStrippedExport bool
 
 	// The TypeScript compiler doesn't generate code for "import foo = bar"
 	// statements where the import is never used.
