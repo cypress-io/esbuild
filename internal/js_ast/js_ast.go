@@ -1021,7 +1021,7 @@ type SNamespace struct {
 }
 
 type SFunction struct {
-	Fn        Fn
+	Fn       Fn
 	IsExport bool
 }
 
