@@ -1,6 +1,7 @@
 package snap_api
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/evanw/esbuild/internal/resolver"
@@ -36,5 +37,43 @@ func CreateShouldReplaceRequire(
 	isExternal := IsExternalModule(platform, external)
 	return func(mdl string) bool {
 		return isExternal(mdl) || IsNative(mdl) || replaceRequire(mdl) || !rewriteModule(mdl)
+	}
+}
+
+func trimPrefix(mdl string, prefix string) string {
+	if strings.HasPrefix(mdl, prefix) {
+		return mdl[len(prefix):]
+	}
+	return mdl
+}
+
+func CreateShouldRewriteModule(
+	args *SnapCmdArgs,
+) api.ShouldRewriteModulePredicate {
+	return func(mdl string) bool {
+		if len(mdl) == 0 {
+			return true
+		}
+		mdl = filepath.ToSlash(mdl)
+		mdl = trimPrefix(mdl, "./")
+
+		if args.Norewrite != nil {
+			for _, m := range args.Norewrite {
+				// The force no rewrite file follows a convention where we try
+				// and match all possible node_modules paths if the force no
+				// rewrite entry starts with "*". If it does not
+				// start with "*/" then it is an exact match.
+				m = filepath.ToSlash(m)
+				if strings.HasPrefix(m, "*") {
+					m = trimPrefix(m, "*/")
+					if strings.HasSuffix(mdl, m) {
+						return false
+					}
+				} else if m == mdl {
+					return false
+				}
+			}
+		}
+		return true
 	}
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"strings"
-
 	"github.com/evanw/esbuild/internal/snap_api"
 	"github.com/evanw/esbuild/pkg/api"
 )
@@ -33,20 +31,6 @@ func nodeJavaScript(args *snap_api.SnapCmdArgs) api.BuildResult {
 		return false
 	}
 
-	shouldRewriteModule := func(mdl string) bool {
-		if len(mdl) == 0 {
-			return true
-		}
-		if args.Norewrite != nil {
-			for _, m := range args.Norewrite {
-				if strings.HasSuffix(mdl, m) {
-					return false
-				}
-			}
-		}
-		return true
-	}
-
 	// TODO(rebase): still needed?
 	// HACK: this is needed to make esbuild include the metafile with the out files in the
 	// result. I'm not sure how that works with the `{ write: false }` JS API.
@@ -62,6 +46,8 @@ func nodeJavaScript(args *snap_api.SnapCmdArgs) api.BuildResult {
 	if args.Sourcemap != "" {
 		sourcemap = api.SourceMapExternal
 	}
+
+	shouldRewriteModule := snap_api.CreateShouldRewriteModule(args)
 
 	return api.Build(api.BuildOptions{
 		// https://esbuild.github.io/api/#log-level
