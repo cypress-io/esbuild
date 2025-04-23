@@ -1,7 +1,6 @@
 package snap_api
 
 import (
-	"path/filepath"
 	"strings"
 
 	"github.com/evanw/esbuild/internal/resolver"
@@ -54,7 +53,6 @@ func CreateShouldRewriteModule(
 		if len(mdl) == 0 {
 			return true
 		}
-		mdl = filepath.ToSlash(mdl)
 		mdl = trimPrefix(mdl, "./")
 
 		if args.Norewrite != nil {
@@ -63,7 +61,6 @@ func CreateShouldRewriteModule(
 				// and match all possible node_modules paths if the force no
 				// rewrite entry starts with "*". If it does not
 				// start with "*/" then it is an exact match.
-				m = filepath.ToSlash(m)
 				if strings.HasPrefix(m, "*") {
 					m = trimPrefix(m, "*/")
 					if strings.HasSuffix(mdl, m) {
