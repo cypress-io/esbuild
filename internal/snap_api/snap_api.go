@@ -53,14 +53,16 @@ func CreateShouldRewriteModule(
 		if len(mdl) == 0 {
 			return true
 		}
+		// Sometimes the module path is prefixed with "./" so we remove it
+		// to make the logic below simpler.
 		mdl = trimPrefix(mdl, "./")
 
 		if args.Norewrite != nil {
 			for _, m := range args.Norewrite {
 				// The force no rewrite file follows a convention where we try
-				// and match all possible node_modules paths if the force no
+				// and match all possible paths if the force no
 				// rewrite entry starts with "*". If it does not
-				// start with "*/" then it is an exact match.
+				// start with "*/" then it needs to be an exact match.
 				if strings.HasPrefix(m, "*") {
 					m = trimPrefix(m, "*/")
 					if strings.HasSuffix(mdl, m) {

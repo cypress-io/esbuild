@@ -1,6 +1,6 @@
 {
 	"name": "@cypress/snapbuild-darwin-arm64",
-	"version": "1.0.4-beta-002",
+	"version": "1.0.4",
 	"main": "bin/snapshot",
 	"description": "The macOS ARM 64-bit binary for snapbuild, a snapshot bundler.",
 	"repository": "https://github.com/cypress-io/esbuild",

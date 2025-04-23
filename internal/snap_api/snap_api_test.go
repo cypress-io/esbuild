@@ -593,12 +593,14 @@ func TestCreateShouldRewriteModule(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			predicate := CreateShouldRewriteModule(tt.args)
-			result := predicate(tt.module)
-			if result != tt.expected {
-				t.Errorf("CreateShouldRewriteModule() = %v, want %v for module %q", result, tt.expected, tt.module)
-			}
-		})
+		for _, prefix := range []string{"", "./"} {
+			t.Run(tt.name, func(t *testing.T) {
+				predicate := CreateShouldRewriteModule(tt.args)
+				result := predicate(prefix + tt.module)
+				if result != tt.expected {
+					t.Errorf("CreateShouldRewriteModule() = %v, want %v for module %q", result, tt.expected, tt.module)
+				}
+			})
+		}
 	}
 }
