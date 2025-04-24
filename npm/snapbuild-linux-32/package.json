@@ -1,6 +1,6 @@
 {
 	"name": "@cypress/snapbuild-linux-32",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"main": "bin/snapshot",
 	"description": "The Linux 32-bit binary for snapbuild, a snapshot bundler.",
 	"repository": "https://github.com/cypress-io/esbuild",

@@ -528,3 +528,79 @@ func TestDebug(t *testing.T) {
 	},
 	)
 }
+
+func TestCreateShouldRewriteModule(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     *SnapCmdArgs
+		module   string
+		expected bool
+	}{
+		{
+			name:     "empty module path",
+			args:     &SnapCmdArgs{},
+			module:   "",
+			expected: true,
+		},
+		{
+			name: "exact match with norewrite",
+			args: &SnapCmdArgs{
+				Norewrite: []string{"react"},
+			},
+			module:   "react",
+			expected: false,
+		},
+		{
+			name: "node_modules prefix no node_modules",
+			args: &SnapCmdArgs{
+				Norewrite: []string{"*/node_modules/react/dist/index.js"},
+			},
+			module:   "node_modules/react/dist/index.js",
+			expected: false,
+		},
+		{
+			name: "* prefix nested node_modules",
+			args: &SnapCmdArgs{
+				Norewrite: []string{"*/node_modules/react/dist/index.js"},
+			},
+			module:   "packages/server/node_modules/react/dist/index.js",
+			expected: false,
+		},
+		{
+			name: "no match with norewrite",
+			args: &SnapCmdArgs{
+				Norewrite: []string{"react"},
+			},
+			module:   "vue",
+			expected: true,
+		},
+		{
+			name: "multiple norewrite entries matching nested dependencies",
+			args: &SnapCmdArgs{
+				Norewrite: []string{"react", "*/node_modules/vue/dist/index.js"},
+			},
+			module:   "packages/app/node_modules/vue/dist/index.js",
+			expected: false,
+		},
+		{
+			name: "multiple norewrite entries with no match",
+			args: &SnapCmdArgs{
+				Norewrite: []string{"react", "*/node_modules/vue/dist/file.js"},
+			},
+			module:   "packages/app/node_modules/vue/dist/index.js",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		for _, prefix := range []string{"", "./"} {
+			t.Run(tt.name, func(t *testing.T) {
+				predicate := CreateShouldRewriteModule(tt.args)
+				result := predicate(prefix + tt.module)
+				if result != tt.expected {
+					t.Errorf("CreateShouldRewriteModule() = %v, want %v for module %q", result, tt.expected, tt.module)
+				}
+			})
+		}
+	}
+}
